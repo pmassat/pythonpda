@@ -2,3 +2,6 @@
 *.png
 *.jpg
 *.asv
+*.pyc
+__pycache__
+*.bak
