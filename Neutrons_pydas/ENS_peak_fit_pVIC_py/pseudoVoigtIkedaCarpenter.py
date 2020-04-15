@@ -5,7 +5,7 @@ Created on Fri Mar 27 18:15:56 2020
 @author: Pierre Massat <pierre.massat@crans.org>
 """
 
-from numpy import sqrt, exp, log, imag, pi
+import numpy as np
 from scipy.special import erfc, exp1
 
 
@@ -94,7 +94,7 @@ def pVIC(x, A, alpha, beta, R, gamma, sigma, k, x0):
     
     def pseudoVoigtFWHM(gamma, sigma):
         fL = 2*gamma 
-        fG = 2*sigma*sqrt(2*log(2))
+        fG = 2*sigma*np.sqrt(2*np.log(2))
         Gamma = (fG**5 + 2.69269*fG**4*fL + 2.42843*fG**3*fL**2 \
             + 4.47163*fG**2*fL**3 + 0.07842*fG*fL**4 + fL**5)**(1/5)
         return Gamma
@@ -102,15 +102,15 @@ def pVIC(x, A, alpha, beta, R, gamma, sigma, k, x0):
     def pseudoVoigtEta(gamma, sigma):
         fL = 2*gamma
         f = pseudoVoigtFWHM(gamma, sigma)
-        fLbyf = fL/f
+        fLbyf = fL/f # note: because of this line, one cannot have both gamma and sigma set to zero
         eta = 1.36603*fLbyf - 0.47719*fLbyf**2 + 0.11116*fLbyf**3
         return eta
     
     Gamma = pseudoVoigtFWHM(gamma, sigma)
     eta = pseudoVoigtEta(gamma, sigma)
     
-    sigmaSq = Gamma**2/(8*log(2))
-    gWidth = sqrt(2*sigmaSq)
+    sigmaSq = Gamma**2/(8*np.log(2))
+    gWidth = np.sqrt(2*sigmaSq)
     
     am = alpha*(1 - k)
     ap = alpha*(1 + k)
@@ -140,9 +140,9 @@ def pVIC(x, A, alpha, beta, R, gamma, sigma, k, x0):
     ys = (alpha*sigmaSq - xr)/gWidth
     yr = (beta*sigmaSq - xr)/gWidth
     
-    val = A*n*((1 - eta)*(nu*exp(u)*erfc(yu) + nv*exp(v)*erfc(yv)\
-        + ns*exp(s)*erfc(ys) + nr*exp(r)*erfc(yr))\
-        - eta*2/pi*(imag(nu*exp1(zu)*exp(zu)) + imag(nv*exp1(zv)*exp(zv))\
-        + imag(ns*exp1(zs)*exp(zs)) + imag(nr*exp1(zr)*exp(zr))))
+    val = A*n*((1 - eta)*(nu*np.exp(u)*erfc(yu) + nv*np.exp(v)*erfc(yv)\
+        + ns*np.exp(s)*erfc(ys) + nr*np.exp(r)*erfc(yr))\
+        - eta*2/np.pi*(np.imag(nu*exp1(zu)*np.exp(zu)) + np.imag(nv*exp1(zv)*np.exp(zv))\
+        + np.imag(ns*exp1(zs)*np.exp(zs)) + np.imag(nr*exp1(zr)*np.exp(zr))))
 
     return val
