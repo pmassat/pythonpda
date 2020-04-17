@@ -44,17 +44,17 @@ def pVIC_residual(x, params, data, eps=None):
     gamma = parvals['gamma']# pV Lorentzian width
     sigma = parvals['sigma']# pV Gaussian width
     k = parvals['k']# IC "approximation" parameter that is set to 0.05 (not sure what it does)
-    x0 = parvals['peakPosition']# position of peak, not max 
-    # more precisely, x0 is roughly the position of upturn (max of second derivative) 
+    xp = parvals['peakPosition']# position of peak, not max 
+    # more precisely, xp is roughly the position of upturn (max of second derivative) 
     # of the lefthand side of the peak
 
-    model = pVIC(x, A, alpha, beta, R, gamma, sigma, k, x0)
+    model = pVIC(x, A, alpha, beta, R, gamma, sigma, k, xp)
     if eps is None:
         return model - data
     return (model-data) / eps
 
 
-def pVIC(x, A, alpha, beta, R, gamma, sigma, k, x0):
+def pVIC(x, A, alpha, beta, R, gamma, sigma, k, xp):
     """
     The pseudo-Voigt-Ikeda-Carpenter function is the convolution of a pseudo-Voigt
     profile with the Ikeda-Carpenter function. 
@@ -81,7 +81,7 @@ def pVIC(x, A, alpha, beta, R, gamma, sigma, k, x0):
     k : Float
         IC "approximation" parameter (not sure what it does).
         Its value is set to 0.05 by default.
-    x0 : Float
+    xp : Float
         Position of peak (not max).
 
     Returns
@@ -90,7 +90,7 @@ def pVIC(x, A, alpha, beta, R, gamma, sigma, k, x0):
         Value of the pseudo-Voigt-Ikeda-Carpenter function at position x in reciprocal space.
 
     """
-    xr = x - x0# position of current datapoint in reciprocal space, relative to peak position
+    xr = x - xp# position of current datapoint in reciprocal space, relative to peak position
     
     def pseudoVoigtFWHM(gamma, sigma):
         fL = 2*gamma 
