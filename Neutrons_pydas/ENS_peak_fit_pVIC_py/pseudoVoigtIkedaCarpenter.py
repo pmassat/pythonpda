@@ -7,6 +7,76 @@ Created on Fri Mar 27 18:15:56 2020
 
 import numpy as np
 from scipy.special import erfc, exp1
+from inspect import signature
+
+def xpVIC_residual(params, x, data, spec_range):
+    """
+    
+
+    Parameters
+    ----------
+    params : TYPE
+        DESCRIPTION.
+    x : TYPE
+        DESCRIPTION.
+    data : TYPE
+        DESCRIPTION.
+    spec_range : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    """
+    ndata, _ = data.shape # determine the number of datasets to fit
+    resid = np.zeros(data.shape) # initialize array of residuals
+    # make residual per data set
+    for spec_idx in range(ndata):
+        resid[spec_idx, :] = data[spec_idx, :] - \
+            pVIC(x[spec_idx, :], *xpVIC_prm_values(params, spec_range[spec_idx]))
+    # now flatten this to a 1D array, as minimize() needs
+    return resid.flatten()
+
+
+def xpVIC_prm_values(params, dataset_idx):
+    """
+    For dataset with index dataset_idx, create fit function with initial value 
+    of parameters taken from the input argument 'params'.
+
+    Parameters
+    ----------
+    params : lmfit Parameters object
+        Parameters to be used for initialization of pVIC function for dataset
+        with index dataset_idx
+    dataset_idx : int
+        Index of dataset for which to initialize function
+    x : Numpy array 
+        x-axis data for the fit
+
+    Returns
+    -------
+    Numpy array 
+        Initialized pVIC function for dataset with index dataset_idx
+
+    """
+    # extract signature of function pVIC, which include a list of its arguments
+    sig = signature(pVIC) 
+    # create array to contain values of fit parameters for spectrum of index dataset_idx
+    prm_values = np.zeros(len(list(sig.parameters.keys())[1:]))
+    for idx, k in enumerate(sig.parameters.keys()):
+        if idx==0: # loop over arguments of function pVIC...
+            continue # ... excluding variable x
+        par_key = f'{k}{dataset_idx}' 
+        # parameter name is a concatenation of the generic parameter name,
+        # as defined in the pVIC function, and the spectrum index
+        try: # store value of parameter with key par_key, if it exists, i.e. for independent fit parameters
+            prm_values[idx-1] = params[par_key].value
+        except KeyError: # otherwise use the default parameter key, for shared fit parameters
+            prm_values[idx-1] = params[k].value
+    # return the result of function pVIC with the content of array prm_values as arguments
+    return prm_values # pVIC(x, *prm_values) 
 
 
 def pVIC_residual(x, params, data, eps=None):
