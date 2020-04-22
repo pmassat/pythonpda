@@ -35,12 +35,12 @@ def xpVIC_residual(params, x, data, spec_range):
     # make residual per data set
     for spec_idx in range(ndata):
         resid[spec_idx, :] = data[spec_idx, :] - \
-            pVIC(x[spec_idx, :], *xpVIC_prm_values(params, spec_range[spec_idx]))
+            pVIC(x[spec_idx, :], *xpVIC_init_prm(params, spec_range[spec_idx]))
     # now flatten this to a 1D array, as minimize() needs
     return resid.flatten()
 
 
-def xpVIC_prm_values(params, dataset_idx):
+def xpVIC_init_prm(params, dataset_idx):
     """
     For dataset with index dataset_idx, create fit function with initial value 
     of parameters taken from the input argument 'params'.
