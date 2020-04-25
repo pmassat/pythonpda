@@ -10,6 +10,7 @@ Define batch fitting functions used in 'ENS_peak_fit_pVIC_2019-02-14.ipynb'
 
 import copy as cp, numpy as np
 from matplotlib import pyplot as plt
+from lmfit import Parameters
 from ENS_peak_fit_pVIC_py.pseudoVoigtIkedaCarpenter import pVIC
 
 
@@ -17,7 +18,6 @@ def xyBatchFitNData(nData, data_range, data_select=None):
     """
     Create x- and y-axis arrays of data for batch fitting.
     
-
     Parameters
     ----------
     nData : Pandas dataframe
@@ -90,7 +90,58 @@ def xFitInitParams(fitParams, refParams, data_range, resultParams=None):
                 par_key = f'{k}{spec_idx}'
                 if par_key not in fitParams.keys():
                     fitParams.add( par_key, value=refParams[k].value, 
-                                      min=refParams[k].min, vary=refParams[k].vary )
+                                   min=refParams[k].min, vary=refParams[k].vary )
+            elif resultParams is None: # if there are no shared fit parameters, because no fit has been performed yet
+            # all other parameters are shared by all datasets and are assigned the "generic" name from refParams
+                fitParams[k] = cp.copy(refParams[k])
+    return fitParams
+
+
+def xFitInitParams2(refParams, data_range, resultParams=None):
+    """
+    Initialize parameters for the next fitting iteration using the results of the previous fit
+    and, if necessary, the default values of a reference set of parameters    
+
+    Parameters
+    ----------
+    fitParams : lmfit Parameters object
+        Fit parameters to initialize.
+    refParams : lmfit Parameters object
+        Reference Parameters object, containing default values and a fixed 
+        number of Parameter objects, as defined from the model fit function.
+    data_range : Range
+        Range of indices of nData datasets to include in fit.
+    resultParams : lmfit Parameters object, optional
+        Parameters object yielded by the previously performed fit, if any.
+        The default is None.
+
+    Returns
+    -------
+    fitParams : TYPE
+        DESCRIPTION.
+
+    """
+    # Initialize lmfit Parameters object
+    fitParams = Parameters()
+    # For those parameters that have been computed in the last run, 
+    # use as initial values for the next run the best fit values obtained in the last
+    if resultParams is not None:
+        for key in resultParams.keys():
+            # try:
+            fitParams[key] = cp.copy(resultParams[key])
+            # except KeyError: # in case fitParams has been modified since last fitting run
+            #     continue
+
+    # Create additional fit parameters, e.g. if the number of datasets has been extended
+    for spec_idx in data_range:
+    # loop over indices of datasets, in order to create fit parameters for each of them
+        for k in refParams.keys():
+            if k in ['A', 'xp']:
+            # fit parameters that are different for each dataset are assigned individual names
+                par_key = f'{k}{spec_idx}'
+                if par_key not in fitParams.keys():
+                    fitParams.add( par_key, value=refParams[k].value, 
+                                   min=refParams[k].min, vary=refParams[k].vary )
             elif resultParams is None: # if there are no shared fit parameters, because no fit has been performed yet
             # all other parameters are shared by all datasets and are assigned the "generic" name from refParams
                 fitParams[k] = cp.copy(refParams[k])
@@ -132,7 +183,7 @@ def bestFitParams(data_range, refParams, fitResultParams):
     return bestparams
 
 
-def plotMultipleFit(data_range, xfitdata, yfitdata, fitParams, bestFitParams,  fieldLabel ):
+def plotMultipleFit(data_range, xfitdata, yfitdata, fitParams, bestFitParams, fieldLabel ):
     """
     Plot multiple datasets with the corresponding fits.
 
@@ -161,7 +212,7 @@ def plotMultipleFit(data_range, xfitdata, yfitdata, fitParams, bestFitParams,  f
     """
     plt.figure()
     for idx, spec_idx in enumerate(data_range):
-        # if idx % (len(data_range)//5) == 0:
+        # if idx % (len(data_range)//5) == 0: # this can be done by slicing data_range directly when calling the function
         bestfit = pVIC(xfitdata[idx], *bestFitParams[idx][:8])
         p = plt.plot(xfitdata[idx], yfitdata[idx], 'o', label=f"expt {fieldLabel[spec_idx]:.3g}T")
         plt.plot(xfitdata[idx], bestfit, '-', color=p[-1].get_color(), label=f"fit {fieldLabel[spec_idx]:.3g}T")
