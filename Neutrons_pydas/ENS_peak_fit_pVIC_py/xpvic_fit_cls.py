@@ -8,11 +8,12 @@ Define batch fitting functions used in 'ENS_peak_fit_pVIC_2019-02-14.ipynb'
 
 """
 
-import copy as cp, numpy as np
+import copy as cp, numpy as np, warnings
 from matplotlib import pyplot as plt
 from lmfit import Parameters, minimize
 from ENS_peak_fit_pVIC_py.pseudoVoigtIkedaCarpenter import pVIC, xpVIC_residual
 
+np.seterr(divide='warn')
 
 class xpvic_fit:
     """
@@ -53,7 +54,7 @@ class xpvic_fit:
         self.refParams = refParams
 
 
-    def xyData(self, data_select=None): # formerly named xyBatchFitNData
+    def makeData(self, data_select=None): # formerly named xyBatchFitNData
         """
         Create x- and y-axis arrays of data for batch fitting.
         
@@ -72,13 +73,34 @@ class xpvic_fit:
             Array of y-axis arrays for batch fitting.
     
         """
+        # Initialize arrays with zero line and as many columns as there are data in each spectrum
+        # This is only useful if weigths should be calculated differently for different spectra
+        # self.X = np.empty((0,len(self.data.spectra[self.data_range[0]].hh0)))
+        # self.Y = np.empty(self.X.shape)
+        # self.dY = np.empty(self.X.shape)
         
+        # If no data selection filter is applied, select all the data
         if data_select is None:
-            self.X = np.stack([self.data.spectra[idx].hh0 for idx in self.data_range])
-            self.Y = np.stack([self.data.spectra[idx].Inorm for idx in self.data_range])
-        else:
-            self.X = np.stack([self.data.spectra[idx].hh0[data_select] for idx in self.data_range])
-            self.Y = np.stack([self.data.spectra[idx].Inorm[data_select] for idx in self.data_range])
+            data_select = np.ones(self.data.spectra[self.data_range[0]].hh0.shape, dtype=bool)
+        
+        # Create x, y and dy data arrays
+        self.X = np.stack([self.data.spectra[idx].hh0[data_select] for idx in self.data_range])
+        self.Y = np.stack([self.data.spectra[idx].Inorm[data_select] for idx in self.data_range])
+        self.dY = np.stack([self.data.spectra[idx].dInorm[data_select] for idx in self.data_range])
+
+        # Compute weights from data errors
+        self.weights = 1/(self.dY)**2
+        # Set all np.inf values in self.weights to zero
+        if np.any(self.weights==np.inf):
+            self.weights[self.weights==np.inf] = 0
+            # print(np.argwhere(self.weights==np.inf))
+            warnings.warn(f"np.inf values were found in 'weights'. They were reset to zero.")
+
+        for idx in self.data_range:
+            if not np.any(self.dY):
+                warnings.warn(f"All errors are zero in spectrum with index {idx}; \
+                              using all ones as weights.")
+                self.weights[idx] = np.ones(self.weights[idx].shape)
         
     
     def initParams(self, resultParams=None): # formerly named xFitInitParams2
@@ -123,7 +145,7 @@ class xpvic_fit:
                     self.init_params[k] = cp.copy(self.refParams[k])
 
 
-    def performFit(self):
+    def performFit(self, weights=None):
         """
         Perfor fit using the xpVIC_residual function, which is the residual 
         function for fitting multiple curves using the pseudo-Voigt-Ikeda-Carpenter
@@ -136,7 +158,7 @@ class xpvic_fit:
 
         """
         self.result = minimize(xpVIC_residual, self.init_params, 
-                                args=(self.X, self.Y, self.data_range))
+                               args=(self.X, self.Y, self.data_range, weights))
 
     
     def bestFitParams(self):
@@ -163,21 +185,30 @@ class xpvic_fit:
                     self.bestparams[spec_idx][par_idx] = self.result.params[refKey].value
     
     
-    def plotMultipleFits(self):
+    def plotMultipleFits(self, title=None):
         """
         Plot multiple datasets with the corresponding fits.    
         """
+        
         if not hasattr(self, 'bestparams'):
             self.bestFitParams()
+        
         plt.figure()
-        for idx, spec_idx in enumerate(self.plot_range):
+        for spec_idx in self.plot_range: # wrong index is displayed when plot_range has a step greater than 1
+            idx = list(self.data_range).index(spec_idx) # this might work better; needs testing as of 2020-04-26
             bestfit = pVIC(self.X[idx], *self.bestparams[idx])
-            p = plt.plot(self.X[idx], self.Y[idx], 'o', label=f"expt {self.data['H (T)'][spec_idx]:.3g}T")
-            plt.plot(self.X[idx], bestfit, '-', color=p[-1].get_color(), label=f"fit {self.data['H (T)'][spec_idx]:.3g}T")
+            p = plt.errorbar(self.X[idx], self.Y[idx], self.dY[idx], marker='o',
+                             linewidth=0, label=f"expt {self.data['H (T)'][spec_idx]:.3g}T")
+            plt.plot(self.X[idx], bestfit, '-', color=p[-1][0].get_color()[0,:3], 
+                     label=f"fit {self.data['H (T)'][spec_idx]:.3g}T")
             plt.legend(loc='best')
         plt.show()
+        
         freeParams = [k for k in list(self.init_params.keys()) if self.init_params[k].vary==True]
-        plt.title(f"TmVO$_4$ neutrons {len(freeParams)} free parameters")
+        if title is None:
+            plt.title(f"TmVO$_4$ neutrons {len(freeParams)} free parameters")
+        else:
+            plt.title(title)
 
 
 

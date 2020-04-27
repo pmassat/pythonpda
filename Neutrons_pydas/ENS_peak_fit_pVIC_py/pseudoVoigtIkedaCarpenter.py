@@ -9,9 +9,10 @@ import numpy as np
 from scipy.special import erfc, exp1
 from inspect import signature
 
-def xpVIC_residual(params, x, data, spec_range):
+def xpVIC_residual(params, x, data, spec_range, weights=None):
     """
-    
+    Compute the residual array to minimize when batch fitting neutrons data 
+    with the pVIC functional form.
 
     Parameters
     ----------
@@ -30,12 +31,18 @@ def xpVIC_residual(params, x, data, spec_range):
         DESCRIPTION.
 
     """
+    
     ndata, _ = data.shape # determine the number of datasets to fit
     resid = np.zeros(data.shape) # initialize array of residuals
     # make residual per data set
     for spec_idx in range(ndata):
-        resid[spec_idx, :] = data[spec_idx, :] - \
-            pVIC(x[spec_idx, :], *xpVIC_init_prm(params, spec_range[spec_idx]))
+        if weights is None:
+            resid[spec_idx, :] = data[spec_idx, :] - \
+                pVIC(x[spec_idx, :], *xpVIC_init_prm(params, spec_range[spec_idx]))
+        else:
+            resid[spec_idx, :] = weights[spec_idx, :]*(data[spec_idx, :] - \
+                pVIC(x[spec_idx, :], *xpVIC_init_prm(params, spec_range[spec_idx])))
+            
     # now flatten this to a 1D array, as minimize() needs
     return resid.flatten()
 
