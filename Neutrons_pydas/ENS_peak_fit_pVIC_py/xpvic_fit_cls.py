@@ -10,6 +10,7 @@ Define batch fitting functions used in 'ENS_peak_fit_pVIC_2019-02-14.ipynb'
 
 import copy as cp, numpy as np, warnings
 from matplotlib import pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 from lmfit import Parameters, minimize
 from ENS_peak_fit_pVIC_py.pseudoVoigtIkedaCarpenter import pVIC, xpVIC_residual
 
@@ -89,7 +90,7 @@ class xpvic_fit:
         self.dY = np.stack([self.data.spectra[idx].dInorm[data_select] for idx in self.data_range])
 
         # Compute weights from data errors
-        self.weights = 1/(self.dY)**2
+        self.weights = 1/(self.dY)
         # Set all np.inf values in self.weights to zero
         if np.any(self.weights==np.inf):
             self.weights[self.weights==np.inf] = 0
@@ -193,11 +194,13 @@ class xpvic_fit:
         if not hasattr(self, 'bestparams'):
             self.bestFitParams()
         
-        plt.figure()
+        fig, ax = plt.subplots()
         for spec_idx in self.plot_range: # wrong index is displayed when plot_range has a step greater than 1
             idx = list(self.data_range).index(spec_idx) # this might work better; needs testing as of 2020-04-26
+            print(f"data_range index = {self.data_range[idx]}; \
+                  plot_range index = {spec_idx}") # Change this to a warning after checking visually that it works fine
             bestfit = pVIC(self.X[idx], *self.bestparams[idx])
-            p = plt.errorbar(self.X[idx], self.Y[idx], self.dY[idx], marker='o',
+            p = plt.errorbar(self.X[idx], self.Y[idx], self.dY[idx], marker='o', elinewidth=1,
                              linewidth=0, label=f"expt {self.data['H (T)'][spec_idx]:.3g}T")
             plt.plot(self.X[idx], bestfit, '-', color=p[-1][0].get_color()[0,:3], 
                      label=f"fit {self.data['H (T)'][spec_idx]:.3g}T")
@@ -209,6 +212,9 @@ class xpvic_fit:
             plt.title(f"TmVO$_4$ neutrons {len(freeParams)} free parameters")
         else:
             plt.title(title)
+        plt.xlabel("$h$ in ($h$ $h$ 0)")
+        plt.ylabel("$I$ (a.u.)")
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.2g'))
 
 
 
