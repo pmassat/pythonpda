@@ -95,7 +95,8 @@ class xpvic_fit:
         if np.any(self.weights==np.inf):
             self.weights[self.weights==np.inf] = 0
             # print(np.argwhere(self.weights==np.inf))
-            warnings.warn(f"np.inf values were found in 'weights'. They were reset to zero.")
+            warnings.warn(f"Infinite values were encountered in 'weights', at positions \
+                          {np.argwhere(self.weights==np.inf)}. They were reset to zero.")
 
         for idx in self.data_range:
             if not np.any(self.dY):
