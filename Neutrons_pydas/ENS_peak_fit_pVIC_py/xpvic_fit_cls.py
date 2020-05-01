@@ -22,7 +22,7 @@ class xpvic_fit:
     the pseudo-Voigt Ikeda-Carpenter function.
     """
     
-    def __init__(self, h, data, refParams):
+    def __init__(self, data, refParams, h, fit_interval=[-.1, .1], data_range=None):
         """
         Initialize attributes of the class
         
@@ -32,40 +32,66 @@ class xpvic_fit:
             Dataframe where each row of the column called "spectra" contains a 
             dataframe with ENS data, where hh0 is the x-axis data and Inorm is 
             the y-axis data. See the xyData() method.
-        data_range : Range
-            Range of indices of nData datasets to include in fit.
-        
         refParams : lmfit Parameters object
             Reference Parameters object, containing default values and a fixed 
             number of Parameter objects, as defined from the model fit function.
+        h: positive integer
+            peak position in (h h 0) reciprocal space
+        data_range : Range
+            Range of indices of nData datasets to include in fit.
+            
+        Returns
+        -------
+        self.xdata_selection : Boolean NumPy array, optional
+            Array with same size as nData.spectra[row_index].hh0, with ones where 
+            data should be used for fitting, and zeros elsewhere.
+        self.data_range : Range
+            Range of indices of nData datasets to include in fit.
+
         """
 
         # Metadata of the fit: peak position in (h h 0) reciprocal space
         self.h = h
-        self.hkl = f"({h} {h} 0)"
+        peak_position = - float(h)
+        self.hkl = f"({self.h} {self.h} 0)"
+
+        # Create range of data to fit and plot
+        if data_range is None:
+            self.data_range = range(len(data)) # by default, use the full range of data
+        else:
+            self.data_range = data_range
+        self.plot_range = self.data_range # use the same range for plotting
+
+        # Number of spectra to use for the fit
+        self.num_spec = len(data_range)
+
+        # x-axis data selection
+        dat_idx = data_range[-1]
+        self.xdata_selection = np.logical_and(
+            data.spectra[dat_idx].hh0 > peak_position + fit_interval[0], 
+            data.spectra[dat_idx].hh0 < peak_position + fit_interval[1]
+            )
         
         # Data to fit
         self.data = data
         
-        # Create range of data to fit and plot
-        self.data_range = range(len(self.data)) # by default, use the full range of data
-        self.plot_range = self.data_range # same for plotting
-        
         # Set of reference parameters to use for the fit
         self.refParams = refParams
+        
+        # Number of shared free parameters in the fit
+        self.freeSharedPrms = 0
+        for key in refParams.keys():
+            if refParams[key].vary is True:
+                self.freeSharedPrms += 1
 
+        # Create x- and y-axis arrays of data for batch fitting.
+        self.makeData()
+        
 
-    def makeData(self, data_select=None): # formerly named xyBatchFitNData
+    def makeData(self): #
         """
         Create x- and y-axis arrays of data for batch fitting.
-        
-        Parameters
-        ----------
-        data_select : Boolean NumPy array, optional
-            Array with same size as nData.spectra[row_index].hh0, with ones where 
-            data should be used for fitting, and zeros elsewhere.
-            The default is None.
-    
+            
         Returns
         -------
         X : NumPy array
@@ -80,14 +106,18 @@ class xpvic_fit:
         # self.Y = np.empty(self.X.shape)
         # self.dY = np.empty(self.X.shape)
         
-        # If no data selection filter is applied, select all the data
-        if data_select is None:
-            data_select = np.ones(self.data.spectra[self.data_range[0]].hh0.shape, dtype=bool)
+        # These lines can be deleted as of 2020-04-30 
+        # # If no data selection filter is applied, select all the data
+        # if data_select is None:
+        #     data_select = np.ones(self.data.spectra[self.data_range[0]].hh0.shape, dtype=bool)
         
         # Create x, y and dy data arrays
-        self.X = np.stack([self.data.spectra[idx].hh0[data_select] for idx in self.data_range])
-        self.Y = np.stack([self.data.spectra[idx].Inorm[data_select] for idx in self.data_range])
-        self.dY = np.stack([self.data.spectra[idx].dInorm[data_select] for idx in self.data_range])
+        self.X = np.stack([self.data.spectra[idx].hh0[self.xdata_selection] 
+                           for idx in self.data_range])
+        self.Y = np.stack([self.data.spectra[idx].Inorm[self.xdata_selection] 
+                           for idx in self.data_range])
+        self.dY = np.stack([self.data.spectra[idx].dInorm[self.xdata_selection] 
+                            for idx in self.data_range])
 
         # Compute weights from data errors
         self.weights = 1/(self.dY)
