@@ -16,6 +16,7 @@ from ENS_peak_fit_pVIC_py.pseudoVoigtIkedaCarpenter import pVIC, xpVIC_residual
 
 np.seterr(divide='warn')
 
+
 class xpvic_fit:
     """
     Class of elements used when batch fitting neutrons diffraction data with
@@ -168,7 +169,7 @@ class xpvic_fit:
             for k in self.refParams.keys():
                 if k in ['A', 'xp']:
                 # fit parameters that are different for each dataset are assigned individual names
-                    par_key = f'{k}{spec_idx}'
+                    par_key = f'{k}_{spec_idx}'
                     if par_key not in self.init_params.keys():
                         self.init_params.add( par_key, value=self.refParams[k].value, 
                                        min=self.refParams[k].min, vary=self.refParams[k].vary )
@@ -177,7 +178,7 @@ class xpvic_fit:
                     self.init_params[k] = cp.copy(self.refParams[k])
 
 
-    def performFit(self, weights=None):
+    def performFit(self, with_weights=True):
         """
         Perfor fit using the xpVIC_residual function, which is the residual 
         function for fitting multiple curves using the pseudo-Voigt-Ikeda-Carpenter
@@ -189,8 +190,12 @@ class xpvic_fit:
             Result of the minimize function, containing the fit results.
 
         """
-        self.result = minimize(xpVIC_residual, self.init_params, 
-                               args=(self.X, self.Y, self.data_range, weights))
+        if with_weights is True:
+            self.result = minimize(xpVIC_residual, self.init_params, 
+                                   args=(self.X, self.Y, self.data_range, self.weights))
+        else:
+            self.result = minimize(xpVIC_residual, self.init_params, 
+                                   args=(self.X, self.Y, self.data_range))
 
     
     def bestFitParams(self):

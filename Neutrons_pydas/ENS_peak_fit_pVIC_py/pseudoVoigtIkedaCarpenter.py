@@ -10,7 +10,7 @@ from scipy.special import erfc, exp1
 from inspect import signature
 
 
-def xnpVIC_residual(params, nFunc, x, data, spec_range, weights=None):
+def xnpVIC_residual(params, n, x, data, spec_range, weights=None):
     """
     Compute the residual array to minimize when batch fitting neutrons data 
     with the pVIC functional form.
@@ -35,6 +35,9 @@ def xnpVIC_residual(params, nFunc, x, data, spec_range, weights=None):
     
     ndata, _ = data.shape # determine the number of datasets to fit
     resid = np.zeros(data.shape) # initialize array of residuals
+    model = np.sum([pVIC(x, *list(params.valuesdict().values())[idx*8:(idx+1)*8]) 
+                    for idx in range(n)], axis=0)
+
     # make residual per data set
     for spec_idx in range(ndata):
         if weights is None:
@@ -96,7 +99,7 @@ def xpVIC_residual(params, x, data, spec_range, weights=None):
     return resid.flatten()
 
 
-def xnpVIC_init_prm(params, fIndex, nFunc, dataset_idx):
+def xnpVIC_init_prm(params, func_index, dataset_idx):
     """
     For dataset with index dataset_idx, create fit function with initial value 
     of parameters taken from the input argument 'params'.
@@ -125,7 +128,7 @@ def xnpVIC_init_prm(params, fIndex, nFunc, dataset_idx):
     for idx, k in enumerate(sig.parameters.keys()):
         if idx==0: # loop over arguments of function pVIC...
             continue # ... excluding variable x
-        par_key = f'{k}{dataset_idx}' 
+        par_key = f'{k}{func_index}_{dataset_idx}' 
         # parameter name is a concatenation of the generic parameter name,
         # as defined in the pVIC function, and the spectrum index
         try: # store value of parameter with key par_key, if it exists, i.e. for independent fit parameters
