@@ -12,18 +12,20 @@ import copy as cp, numpy as np, warnings
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 from lmfit import Parameters, minimize
-from ENS_peak_fit_pVIC_py.pseudoVoigtIkedaCarpenter import pVIC, xpVIC_residual
+from ENS_peak_fit_pVIC_py.pseudoVoigtIkedaCarpenter import pVIC, xnpVIC_residual
+
 
 np.seterr(divide='warn')
 
 
 class xpvic_fit:
     """
-    Class of elements used when batch fitting neutrons diffraction data with
-    the pseudo-Voigt Ikeda-Carpenter function.
+    Class of objects allowing to easily batch fit neutrons diffraction data with
+    one or more pseudo-Voigt Ikeda-Carpenter functional forms.
     """
     
-    def __init__(self, data, refParams, h, fit_interval=[-.1, .1], data_range=None):
+    def __init__(self, data, refParams, h, fit_interval=[-.1, .1], 
+                 data_range=None, num_fit_func=1):
         """
         Initialize attributes of the class
         
@@ -55,6 +57,9 @@ class xpvic_fit:
         self.h = h
         peak_position = - float(h)
         self.hkl = f"({self.h} {self.h} 0)"
+        
+        # Number of fitting function for each curve
+        self.num_fit_func = num_fit_func
 
         # Create range of data to fit and plot
         if data_range is None:
@@ -64,7 +69,7 @@ class xpvic_fit:
         self.plot_range = self.data_range # use the same range for plotting
 
         # Number of spectra to use for the fit
-        self.num_spec = len(data_range)
+        self.num_spec = len(self.data_range)
 
         # x-axis data selection
         dat_idx = data_range[-1]
@@ -136,13 +141,17 @@ class xpvic_fit:
                 self.weights[idx] = np.ones(self.weights[idx].shape)
         
     
-    def initParams(self, resultParams=None): # formerly named xFitInitParams2
+    def initParams(self, resultParams=None, xp=None, A=None):
         """
         Initialize parameters for the next fitting iteration using the results of the previous fit
         and, if necessary, the default values of a reference set of parameters    
     
         Parameters
         ----------
+        xp: NumPy array of length self.num_fit_func
+            Initial values of the independent parameter xp, which contains the peak positions
+        A: NumPy array of length self.num_fit_func
+            Initial values of the independent parameter A, which contains the peak amplitudes
         resultParams : lmfit Parameters object, optional
             Parameters object yielded by the previously performed fit, if any.
             The default is None.
@@ -152,6 +161,18 @@ class xpvic_fit:
         self.init_params : lmfit Parameters object
             Parameters to be used in the fit of all curves.
         """
+
+        # Set default values of xp and A arrays when fitting with only one pVIC function: 
+        # Default value of xp is np.array([self.refParams['xp'].value])
+        if xp is None:
+            xp = np.array([self.refParams['xp'].value+0.015*(self.num_fit_func-1-2*idx) 
+                           for idx in range(self.num_fit_func)])
+            
+        # Default value of A is np.array([self.refParams['A'].value])
+        if A is None:
+            A = np.array([self.refParams['A'].value/np.sqrt(self.num_fit_func) 
+                          for _ in range(self.num_fit_func)])
+
         # Initialize lmfit Parameters object
         self.init_params = Parameters()
         # For those parameters that have been computed in the last run, 
@@ -166,16 +187,26 @@ class xpvic_fit:
         # Create additional fit parameters, e.g. if the number of datasets has been extended
         for spec_idx in self.data_range:
         # loop over indices of datasets, in order to create fit parameters for each of them
-            for k in self.refParams.keys():
-                if k in ['A', 'xp']:
+            for key in self.refParams.keys():
+                if key in ['A', 'xp']:
                 # fit parameters that are different for each dataset are assigned individual names
-                    par_key = f'{k}_{spec_idx}'
-                    if par_key not in self.init_params.keys():
-                        self.init_params.add( par_key, value=self.refParams[k].value, 
-                                       min=self.refParams[k].min, vary=self.refParams[k].vary )
-                elif resultParams is None: # if there are no shared fit parameters, because no fit has been performed yet
-                # all other parameters are shared by all datasets and are assigned the "generic" name from self.refParams
-                    self.init_params[k] = cp.copy(self.refParams[k])
+                    for fidx in range(self.num_fit_func):                      
+                        par_key = f"{key}{spec_idx}_{fidx}"
+                        if par_key not in self.init_params.keys():
+                            try:
+                                self.init_params.add(par_key, 
+                                                     value=eval(key)[fidx], 
+                                                     min=self.refParams[key].min, 
+                                                     vary=self.refParams[key].vary
+                                                     )
+                            except:
+                                raise TypeError(f"{key} must be an iterable \
+                                                object of length {self.num_fit_func}")
+
+                # For the shared fit parameters, if they have not been previously computed
+                elif resultParams is None: 
+                # They are assigned the "generic" name from self.refParams
+                    self.init_params[key] = cp.copy(self.refParams[key])
 
 
     def performFit(self, with_weights=True):
@@ -191,11 +222,14 @@ class xpvic_fit:
 
         """
         if with_weights is True:
-            self.result = minimize(xpVIC_residual, self.init_params, 
-                                   args=(self.X, self.Y, self.data_range, self.weights))
+            self.result = minimize(xnpVIC_residual, self.init_params, 
+                                   args=(self.X, self.Y, self.data_range),
+                                   kws={'weights':self.weights, 
+                                        'nFunc':self.num_fit_func})
         else:
-            self.result = minimize(xpVIC_residual, self.init_params, 
-                                   args=(self.X, self.Y, self.data_range))
+            self.result = minimize(xnpVIC_residual, self.init_params, 
+                                   args=(self.X, self.Y, self.data_range),
+                                   kws={'nFunc':self.num_fit_func})
 
     
     def bestFitParams(self):
@@ -208,18 +242,19 @@ class xpvic_fit:
             Array of arrays of best fit parameter values for each fitted curve.
     
         """
-        num_spec = len(self.data_range)
-        self.bestparams = np.zeros((num_spec,len(self.refParams)))
+
+        self.bestparams = np.zeros((self.num_spec,len(self.refParams)))
         # self.bestparams.shape = # of datasets x # of parameters in fit function (pVIC)
-        for spec_idx in range(num_spec):
-            for par_idx, refKey in enumerate(self.refParams.keys()):
-                par_key = f'{refKey}{self.data_range[spec_idx]}' 
-                # parameter name is a concatenation of the generic parameter name,
-                # as defined in the self.refParams function, and the spectrum index
-                try:
-                    self.bestparams[spec_idx][par_idx] = self.result.params[par_key].value
-                except KeyError:
-                    self.bestparams[spec_idx][par_idx] = self.result.params[refKey].value
+        for spec_idx in range(self.num_spec):
+            for fidx in range(self.num_fit_func):
+                for par_idx, refKey in enumerate(self.refParams.keys()):
+                    par_key = f"{refKey}{self.data_range[spec_idx]}_{fidx}"
+                    # parameter name is a concatenation of the generic parameter name,
+                    # as defined in the self.refParams function, and the spectrum index
+                    try:
+                        self.bestparams[spec_idx][par_idx] = self.result.params[par_key].value
+                    except KeyError:
+                        self.bestparams[spec_idx][par_idx] = self.result.params[refKey].value
     
     
     def plotMultipleFits(self, title=None):
@@ -227,7 +262,9 @@ class xpvic_fit:
         Plot multiple datasets with the corresponding fits.    
         """
         
-        if not hasattr(self, 'bestparams'):
+        # (Re)compute best fit parameters if they don't exist or if something 
+        # went wrong during the first computation and all computed parameters are zero
+        if not hasattr(self, 'bestparams') or np.any(self.bestparams)==0:
             self.bestFitParams()
         
         fig, ax = plt.subplots()
@@ -236,10 +273,11 @@ class xpvic_fit:
             print(f"data_range index = {self.data_range[idx]}; \
                   plot_range index = {spec_idx}") # Change this to a warning after checking visually that it works fine
             bestfit = pVIC(self.X[idx], *self.bestparams[idx])
+            fieldlabel = f"{self.data['H (T)'][spec_idx]:.3g}T"
             p = plt.errorbar(self.X[idx], self.Y[idx], self.dY[idx], marker='o', elinewidth=1,
-                             linewidth=0, label=f"expt {self.data['H (T)'][spec_idx]:.3g}T")
+                             linewidth=0, label=f"expt {fieldlabel}")
             plt.plot(self.X[idx], bestfit, '-', color=p[-1][0].get_color()[0,:3], 
-                     label=f"fit {self.data['H (T)'][spec_idx]:.3g}T")
+                     label=f"fit {fieldlabel}")
             plt.legend(loc='best')
         plt.show()
         
@@ -250,6 +288,8 @@ class xpvic_fit:
             plt.title(title)
         plt.xlabel("$h$ in ($h$ $h$ 0)")
         plt.ylabel("$I$ (a.u.)")
+        
+        # Set the format of y-axis tick labels
         ax.yaxis.set_major_formatter(FormatStrFormatter('%.2g'))
 
 

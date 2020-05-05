@@ -11,8 +11,63 @@ Define batch fitting functions used in 'ENS_peak_fit_pVIC_2019-02-14.ipynb'
 import copy as cp, numpy as np
 from matplotlib import pyplot as plt
 from lmfit import Parameters
-from ENS_peak_fit_pVIC_py.pseudoVoigtIkedaCarpenter import pVIC
+from ENS_peak_fit_pVIC_py.pseudoVoigtIkedaCarpenter import pVIC, xnpVIC_init_prm
+# from ENS_peak_fit_pVIC_py.xpvic_fit_cls import xpvic_fit
 
+
+def fixSharedParams(freeSharedParams, fitResult):
+    fixedParams = {}
+
+    # Find all parameters with a relative error of more than 100% in the last fit result, if any
+    for prmKey in reversed(freeSharedParams):
+        prmRelErr = fitResult.params[prmKey].stderr / fitResult.params[prmKey].value
+        if prmRelErr > 1:
+            fixedParams[prmKey] = 1e-10
+            freeSharedParams.remove(prmKey)
+    
+    # If all shared parameters have a relative error of less than 100%
+    # Store them in fixParams and empty freeSharedParams
+    if len(fixedParams)==0:
+        for prmKey in freeSharedParams:
+            fixedParams[prmKey] = None
+        freeSharedParams = []
+    
+    return freeSharedParams, fixedParams
+
+
+# The following three functions are kept for records but have been included  in other modules
+
+# Included in the xnpVIC_init_prm function of the 'pseudoVoigtIkedaCarpenter' module
+def npvicResidual(params, x, data, data_range, nFunc):
+#     model = np.sum([pVIC(x, *list(params.valuesdict().values())[idx*8:(idx+1)*8]) for idx in range(n)], axis=0)
+    model = np.sum([pVIC(x, *xnpVIC_init_prm(params, fun_idx, dat_idx)) 
+                    for fun_idx in range(nFunc) for dat_idx in data_range], axis=0)
+    return data - model
+
+# Included in the initParams method of the xpvic_fit class of the 'xpvic_fit_cls' module
+def npvicInitParams(refParams, spec_idx, nFunc, xp=None, A=None):
+    if xp is None:
+        xp = np.array([refParams['xp'].value+0.015*(nFunc-1-2*idx) for idx in range(nFunc)])
+    if A is None:
+        A = np.array([refParams['A'].value/np.sqrt(nFunc) for _ in range(nFunc)])
+
+    params = Parameters()
+    for idx in range(nFunc):
+        for key in refParams.keys():
+            if key in ['A', 'xp']:
+                try:
+                    params.add(f"{key}{idx}_{spec_idx}", value=eval(key)[idx], vary=True)
+                except:
+                    raise TypeError(f"{key} must be an iterable object of length {nFunc}")
+            else:
+                params[key] = cp.copy(refParams[key])
+    
+    return params
+
+
+
+# Functions below this point are deprecated and have been replaced by the 
+# xpvic_fit class of the 'xpvic_fit_cls' module
 
 def xyBatchFitNData(nData, data_range, data_select=None):
     """
