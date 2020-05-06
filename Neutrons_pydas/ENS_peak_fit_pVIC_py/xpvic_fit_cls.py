@@ -77,6 +77,17 @@ class xpvic_fit:
             data.spectra[dat_idx].hh0 > peak_position + fit_interval[0], 
             data.spectra[dat_idx].hh0 < peak_position + fit_interval[1]
             )
+        self.plot_lim = .15
+        self.xdata_plot_selection = np.logical_or(
+            np.logical_and(
+            data.spectra[dat_idx].hh0 > peak_position - self.plot_lim, 
+            data.spectra[dat_idx].hh0 < peak_position + fit_interval[0]
+            ),
+            np.logical_and(
+            data.spectra[dat_idx].hh0 > peak_position + fit_interval[1], 
+            data.spectra[dat_idx].hh0 < peak_position + self.plot_lim
+            )
+            )
         
         # Data to fit
         self.data = data
@@ -120,7 +131,11 @@ class xpvic_fit:
         # Create x, y and dy data arrays
         self.X = np.stack([self.data.spectra[idx].hh0[self.xdata_selection] 
                            for idx in self.data_range])
+        self.Xplot = np.stack([self.data.spectra[idx].hh0[self.xdata_plot_selection] 
+                           for idx in self.data_range])
         self.Y = np.stack([self.data.spectra[idx].Inorm[self.xdata_selection] 
+                           for idx in self.data_range])
+        self.Yplot = np.stack([self.data.spectra[idx].Inorm[self.xdata_plot_selection] 
                            for idx in self.data_range])
         self.dY = np.stack([self.data.spectra[idx].dInorm[self.xdata_selection] 
                             for idx in self.data_range])
@@ -243,7 +258,7 @@ class xpvic_fit:
     
         """
 
-        self.bestparams = np.zeros((self.num_spec,len(self.refParams)))
+        self.bestparams = np.zeros((self.num_spec,self.num_fit_func,len(self.refParams)))
         # self.bestparams.shape = # of datasets x # of parameters in fit function (pVIC)
         for spec_idx in range(self.num_spec):
             for fidx in range(self.num_fit_func):
@@ -252,12 +267,12 @@ class xpvic_fit:
                     # parameter name is a concatenation of the generic parameter name,
                     # as defined in the self.refParams function, and the spectrum index
                     try:
-                        self.bestparams[spec_idx][par_idx] = self.result.params[par_key].value
+                        self.bestparams[spec_idx][fidx][par_idx] = self.result.params[par_key].value
                     except KeyError:
-                        self.bestparams[spec_idx][par_idx] = self.result.params[refKey].value
+                        self.bestparams[spec_idx][fidx][par_idx] = self.result.params[refKey].value
     
     
-    def plotMultipleFits(self, title=None):
+    def plotMultipleFits(self, title=None, plotSubFits=False):
         """
         Plot multiple datasets with the corresponding fits.    
         """
@@ -268,16 +283,29 @@ class xpvic_fit:
             self.bestFitParams()
         
         fig, ax = plt.subplots()
-        for spec_idx in self.plot_range: # wrong index is displayed when plot_range has a step greater than 1
-            idx = list(self.data_range).index(spec_idx) # this might work better; needs testing as of 2020-04-26
-            print(f"data_range index = {self.data_range[idx]}; \
-                  plot_range index = {spec_idx}") # Change this to a warning after checking visually that it works fine
-            bestfit = pVIC(self.X[idx], *self.bestparams[idx])
+        for spec_idx in self.plot_range: #
+            dat_idx = list(self.data_range).index(spec_idx) #
+            # print(f"data_range index = {self.data_range[dat_idx]}; \
+            #       plot_range index = {spec_idx}") # Just to check that the right labels are displayed in the legend
             fieldlabel = f"{self.data['H (T)'][spec_idx]:.3g}T"
-            p = plt.errorbar(self.X[idx], self.Y[idx], self.dY[idx], marker='o', elinewidth=1,
+            p = plt.errorbar(self.X[dat_idx], self.Y[dat_idx], self.dY[dat_idx], marker='o', elinewidth=1,
                              linewidth=0, label=f"expt {fieldlabel}")
-            plt.plot(self.X[idx], bestfit, '-', color=p[-1][0].get_color()[0,:3], 
-                     label=f"fit {fieldlabel}")
+            pcolor = p[-1][0].get_color()[0,:3]
+            plt.plot(self.Xplot[dat_idx], self.Yplot[dat_idx], marker='x',
+                     linewidth=0, color=pcolor, label=f"excluded")
+            
+            plot_center = -float(self.h)
+            plot_lim = self.plot_lim
+            fit_xrange = np.linspace(plot_center-plot_lim, plot_center+plot_lim, num=400)
+            best_subfit = np.zeros((self.num_fit_func, fit_xrange.shape[0]))
+
+            for fidx in range(self.num_fit_func):
+                best_subfit[fidx] = pVIC(fit_xrange, *self.bestparams[dat_idx][fidx])
+                if plotSubFits is True:
+                    plt.plot(fit_xrange, best_subfit[fidx], '-', label=f"subfit {fieldlabel} {fidx}")
+                    
+            bestfit = np.sum(best_subfit, axis=0)
+            plt.plot(fit_xrange, bestfit, '-', color=pcolor, label=f"fit {fieldlabel}")
             plt.legend(loc='best')
         plt.show()
         

@@ -44,6 +44,7 @@ def npvicResidual(params, x, data, data_range, nFunc):
                     for fun_idx in range(nFunc) for dat_idx in data_range], axis=0)
     return data - model
 
+
 # Included in the initParams method of the xpvic_fit class of the 'xpvic_fit_cls' module
 def npvicInitParams(refParams, spec_idx, nFunc, xp=None, A=None):
     if xp is None:
