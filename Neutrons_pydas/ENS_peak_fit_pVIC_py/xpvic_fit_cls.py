@@ -288,8 +288,8 @@ class xpvic_fit:
             # print(f"data_range index = {self.data_range[dat_idx]}; \
             #       plot_range index = {spec_idx}") # Just to check that the right labels are displayed in the legend
             fieldlabel = f"{self.data['H (T)'][spec_idx]:.3g}T"
-            p = plt.errorbar(self.X[dat_idx], self.Y[dat_idx], self.dY[dat_idx], marker='o', elinewidth=1,
-                             linewidth=0, label=f"expt {fieldlabel}")
+            p = plt.errorbar(self.X[dat_idx], self.Y[dat_idx], self.dY[dat_idx], 
+                             marker='o', elinewidth=1, linewidth=0, label=f"expt {fieldlabel}")
             pcolor = p[-1][0].get_color()[0,:3]
             plt.plot(self.Xplot[dat_idx], self.Yplot[dat_idx], marker='x',
                      linewidth=0, color=pcolor, label=f"excluded")
