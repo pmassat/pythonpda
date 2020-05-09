@@ -156,7 +156,7 @@ class xpvic_fit:
                 self.weights[idx] = np.ones(self.weights[idx].shape)
         
     
-    def initParams(self, resultParams=None, xp=None, A=None):
+    def initParams(self, resultParams=None, xp=None, A=None, fixParams={}):
         """
         Initialize parameters for the next fitting iteration using the results of the previous fit
         and, if necessary, the default values of a reference set of parameters    
@@ -187,6 +187,9 @@ class xpvic_fit:
         if A is None:
             A = np.array([self.refParams['A'].value/np.sqrt(self.num_fit_func) 
                           for _ in range(self.num_fit_func)])
+        
+        if type(fixParams) is not dict:
+            raise TypeError("The fixParams argument must be a dictionary.")
 
         # Initialize lmfit Parameters object
         self.init_params = Parameters()
@@ -205,18 +208,23 @@ class xpvic_fit:
             for key in self.refParams.keys():
                 if key in ['A', 'xp']:
                 # fit parameters that are different for each dataset are assigned individual names
-                    for fidx in range(self.num_fit_func):                      
-                        par_key = f"{key}{spec_idx}_{fidx}"
-                        if par_key not in self.init_params.keys():
-                            try:
-                                self.init_params.add(par_key, 
-                                                     value=eval(key)[fidx], 
-                                                     min=self.refParams[key].min, 
-                                                     vary=self.refParams[key].vary
-                                                     )
-                            except:
-                                raise TypeError(f"{key} must be an iterable \
-                                                object of length {self.num_fit_func}")
+                    for fidx in range(self.num_fit_func):
+                        par_key_base = f"{key}{spec_idx}"
+                        par_key = f"{par_key_base}_{fidx}"
+                        # if par_key not in self.init_params.keys():
+                        try:
+                            self.init_params.add(par_key, 
+                                                 value=eval(key)[fidx], 
+                                                 min=self.refParams[key].min, 
+                                                 vary=self.refParams[key].vary
+                                                 )
+                        except:
+                            raise TypeError(f"{key} must be an iterable \
+                                            object of length {self.num_fit_func}")
+                        
+                        if fidx>0 and key=='A' in fixParams:
+                            self.init_params[par_key].expr = \
+                            f"{par_key_base}_{fidx-1}/{fixParams[key]}"
 
                 # For the shared fit parameters, if they have not been previously computed
                 elif resultParams is None: 

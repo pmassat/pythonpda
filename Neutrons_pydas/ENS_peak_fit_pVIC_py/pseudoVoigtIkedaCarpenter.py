@@ -121,13 +121,19 @@ def xnpVIC_init_prm(params, dataset_idx, func_index=1):
     for idx, key in enumerate(sig.parameters.keys()):
         if idx==0: # loop over arguments of function pVIC...
             continue # ... excluding variable x
-        par_key = f"{key}{dataset_idx}_{func_index}" 
-        # parameter name is a concatenation of the generic parameter name,
+
+        # the base parameter name is a concatenation of the generic parameter name,
         # as defined in the pVIC function, and the spectrum index
-        try: # store value of parameter with key par_key, if it exists, i.e. for independent fit parameters
+        par_key_base = f"{key}{dataset_idx}"
+        # to which is added a fit function index, if there is more than one
+        par_key = f"{par_key_base}_{func_index}" 
+        try: # store value of parameter with key par_key, if it exists
             prm_values[idx-1] = params[par_key].value
-        except KeyError: # otherwise use the default parameter key, for shared fit parameters
-            prm_values[idx-1] = params[key].value
+        except KeyError: # if this key doesn't work, try the base parameter key
+            try:
+                prm_values[idx-1] = params[par_key_base].value                
+            except KeyError: # otherwise use the default parameter key, for shared fit parameters
+                prm_values[idx-1] = params[key].value
     # return the result of function pVIC with the content of array prm_values as arguments
     return prm_values # pVIC(x, *prm_values) 
 
