@@ -3,23 +3,26 @@
 Created on Wed Apr 15 14:48:24 2020
 
 @author: Pierre Massat <pmassat@stanford.edu>
+
+Important note: Windows has a path size limit of 260 characters, when adding the path plus filename. Hence if a path is too long, os.rename will throw a FileNotFoundError (WinError 3).
 """
 
 import os, glob
 from datetime import date
 
 today = date.today()
-other_date = date(2020,3,19)
+other_date = date(2020,7,29)
 
-# os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\Writing\Articles\2020_TmVO4_model_nematicity\Ian-s_edits')
-# os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\TmVO4\TmVO4_NMR\2020-04_TmVO4_NMR')
-os.chdir(r'C:\Users\Pierre\Documents\Personnel\Famille\Famille_Massat\Jean-Marie_Massat')
+# os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\Bibliographic_resources\Presentations\Presentations_elastoresistance')
+# os.chdir(r'C:\Users\Pierre\Documents\Personnel\Administratif\Administration_US')
+os.chdir(r'C:\Users\Pierre\Documents\Personnel\Leisure\Guitar')
 
 filenames = glob.glob('* *')# create list of filenames containing at least one whitespace
 
 for filename in filenames:
     print(filename)
     newfname = '_'.join([str(today), filename.replace(' ', '_')])
+    # newfname = filename.replace('_comsol-mfd_', '_')
     # New file name adds today's date at the beginning and replaces whitespaces with underscores
     print(newfname)
     print()
