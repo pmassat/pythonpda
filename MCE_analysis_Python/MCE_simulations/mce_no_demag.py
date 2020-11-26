@@ -3,22 +3,141 @@
 Created on Tue Nov 17 14:52:13 2020
 
 @author: Pierre Massat <pmassat@stanford.edu>
+
+Compute and plot the magneto-caloric effect (MCE), i.e. the evolution with magnetic field of the temperature of a sample, in the case where the sample behaves as described by the transverse field Ising model.
+See Kohama et al. 2010, equation 3 for a generic equation of the MCE.
+See Stinchcombe 1973 for equations of the TFIM.
+The final equation that we are solving for is:
+    dt/dh = t(h)/h + (t0-t(h))*k1*(t0/h)**2*cosh(h/t0)**2
+where t(h) = T(h)/Tc0, h = H/Hc0, and t0 = Tbath/Tc0, with Tc0 and Hc0 being the transition temperature at zero field and the critical field at zero temperature, respectively.
+In the above equation, t0/h and h/t0 should be t(h)/h and h/t(h) but we chose to approximate t(h) in these terms, otherwise the solution is too complicated (and Wolfram Alpha cannot solve it)
+
 """
 
 #%% Import functions
 import numpy as np
-# from scipy.special import expi
+from scipy.special import shichi # expi
+from scipy.integrate import solve_ivp
 from matplotlib import pyplot as plt
 
 
-#%% Define variables
+#%% Define physical constants of the problem
 
-Hc0 = 5e3 # critical field
+R = 8.314 # gas constant, in J/K/mol
+
+Hc0 = 5e3 # critical field in Oe
 Hmax0 = 1e4 # Max field, in Oe
 dtH0 = 10# Sweeprate, in Oe/s
 
+kappa = 1 # thermal conductivity, in W/K/mol
+
+k1 = Hc0*kappa / (dtH0*R) # equation prefactor
+
+tbath = .8/2.2 # ratio of bath temperature to Tq0, the transition temperature at zero field
+
+hc = critical_field(tbath)
+
+
+#%% Function for ODE
+
+def ode_rhs(h, t, k, tb):
+    return t/h + k * (t/h)**2 * np.cosh(h/t)**2 * (tb - t)
+
+
+#%% Upsweep solving of ODE
+
+h_span = (hc, 2) # interval of integration of the ODE
+
+t0 = np.array([tbath]) # value of reduced temperature at h = hc
+    
+solup = solve_ivp(ode_rhs, h_span, t0, args=(0.1*k1,tbath), dense_output=True)
+
+#%% Plot ODE solution
+
+hup = np.linspace(float(hc), 2, 200)
+zup = solup.sol(hup) # continuous solution obtained from dense_output
+
+plt.figure(1)
+plt.plot(hup*Hc0, zup.T*2.2)
+# plt.plot(soldown.t, np.transpose(soldown.y))
+plt.xlim([0, Hc0*2])
+
+#%% Downsweep solving of ODE
+
+h_span_down = (2, hc) # interval of integration of the ODE
+
+# t0dn = np.array([tbath]) # value of reduced temperature at h = hc
+    
+soldown = solve_ivp(ode_rhs, h_span_down, t0, args=(-0.1*k1,tbath), dense_output=True)
+
+#%% Plot ODE solution
+
+hdn = np.linspace(float(hc), 2, 200)
+zdn = soldown.sol(hdn) # continuous solution obtained from dense_output
+
+plt.figure(1)
+plt.plot(hdn*Hc0, zdn.T*2.2)
+# plt.plot(soldown.t, np.transpose(soldown.y))
+
+
+
+
+
+#%% Test of solve_ivp
+def exponential_decay(t, y): return -0.5 * y
+
+sol = solve_ivp(exponential_decay, [0, 10], [2], dense_output=True)
+
+t = np.linspace(0,10)
+z = sol.sol(t) # continuous solution obtained from dense_output
+
+plt.figure(1)
+plt.plot(t, z.T)
+
+
+
+
+
+#%% Functions used in the equation solution
+
+def exparg(h, k=k1, tb=tbath):
+    """
+    Argument of the exponentials in the solution of the MCE equation where the magnetic field dependence of the heat capacity C is taken into account.
+    See Wolfram alpha for a human readable version of the solution of the equation
+
+    Parameters
+    ----------
+    h : array
+        Reduced magnetic field H/Hc0.
+    k : scalar, optional
+        Prefactor of the second term in the RHS of the equation. The default is k1.
+    tb : scalar, optional
+        Reduced bath temperature Tbat/Tc0. The default is tbath.
+
+    Returns
+    -------
+    y : array
+        Final computed quantity.
+
+    """
+    y = - k * tb * shichi(2*h/tb)[0] + \
+        k * tb**2 / (2*h) * (1 + np.cosh(2*h/tb))
+    return y
+
+
+def solint(h, k=k1, tb=tbath):
+    
+
+
+
+
+
+#%% 
+
 H = np.linspace(0, Hmax0, num=int(Hmax0)+1) # time array
 
+
+#%% 
 tau0 = 50 # time constant for leakage of heat to the bath, in seconds
 
 def Tmce(H, dtH=dtH0, dhT=1e-3, Hc=Hc0, H0=Hc0, tau=tau0, T0=1):
@@ -57,11 +176,6 @@ def Tmce(H, dtH=dtH0, dhT=1e-3, Hc=Hc0, H0=Hc0, tau=tau0, T0=1):
         y[H>Hc] = T0 + dhT*(H[H>Hc]-H0)*np.exp(-(H[H>Hc]-H0)/a)
     return y
 
-# def Tdown(H, dtH=-dtH0, Hc=Hc0, Hmax=Hmax0, tau=tau0):
-#     y = np.ones(np.size(H)) # array of temperatures
-#     y[H>Hc] = 1 + (H[H>Hc]-Hmax)/Hmax*np.exp(-(H[H>Hc]-Hmax)/(dtH*tau))
-#     return y
-
 
 
 #%% Plot T vs H upsweep
@@ -71,6 +185,10 @@ plt.plot(H, Tmce(H, dtH=20, dhT=1e-4, tau=40))
 #%% Plot T vs H upsweep
 plt.figure(num=1)
 plt.plot(H, Tmce(H, dtH=-20, dhT=1e-4, H0=Hmax0, tau=40))
+
+
+
+
 
 
 #%% Compute physical quantities of MCE as a function of time
@@ -84,12 +202,4 @@ Hdown = Hmax0-t*dtH0 # array of magnetic fields for downsweep
 Tup = np.ones(np.size(t)) # array of temperatures
 Tdown = np.ones(np.size(t)) # array of temperatures
 
-# Tup[Hup>Hc] = 1 + dtH0/Hc*(t[Hup>Hc]-t[Hup==Hc])*np.exp(-(t[Hup>Hc]-t[Hup==Hc])/tau)
-# Tdown[Hdown>Hc] = 1 - dtH0/Hmax0*(t[Hdown>Hc])*np.exp(-(t[Hdown>Hc])/tau)
-
-
-#%% Plot data
-
-plt.plot(t,Tup)
-plt.plot(t,Tdown)
 
