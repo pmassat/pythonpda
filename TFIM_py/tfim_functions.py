@@ -22,17 +22,17 @@ def critical_field(t):
 
 
 #%% 
+if __name__=='__main__':
+    t = np.concatenate([np.logspace(-5,-2), 
+                        np.linspace(.02,.99,98),
+                        1-np.logspace(-2,-5)])
+    hc = np.ones(np.size(t))
+    rng = range(len(t))
     
-t = np.concatenate([np.logspace(-5,-2), 
-                    np.linspace(.02,.99,98),
-                    1-np.logspace(-2,-5)])
-hc = np.ones(np.size(t))
-rng = range(len(t))
-
-for i in rng:
-    hc[i] = critical_field(t[i])
-
-
-#%% Plot phase boundary
-plt.figure
-plt.plot(hc, t)
+    for i in rng:
+        hc[i] = critical_field(t[i])
+    
+    
+    # Plot phase boundary
+    plt.figure
+    plt.plot(hc, t)
