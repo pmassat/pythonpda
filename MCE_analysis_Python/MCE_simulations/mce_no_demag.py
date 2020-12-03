@@ -13,22 +13,25 @@ where t(h) = T(h)/Tc0, h = H/Hc0, and t0 = Tbath/Tc0, with Tc0 and Hc0 being the
 
 """
 
-
 #%% Import functions
 
-# Official Python libraries
+# Core libraries
+import os
+import sys
+
+# Data analysis
 import numpy as np
 from scipy.integrate import solve_ivp
 from warnings import warn
 from matplotlib import pyplot as plt
-# import plotly.express as px
+
 import plotly.graph_objects as go
 # from plotly.offline import plot
 from lmfit import minimize, Parameters
 
-# Local modules
-from tfim_functions import critical_field
-
+#%% Local modules
+from TFIM_py.tfim_functions import critical_field
+# from tfim_functions import critical_field
 
 #%% Define physical constants of the problem
 
@@ -44,7 +47,6 @@ def mce_parameters(Hc0=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=0.8):
     mce_prms.add('Tc0', value=Tc0, vary=False)# transition temperature at zero field, in Kelvin
     mce_prms.add('Normalized_bath_temperature', value=Tbath/Tc0)# Normalized bath temperature
     return mce_prms
-
 
 #%% Residual function to be minimized
 def mce_residual(mce_params, H, data=None, trace='upsweep'):
@@ -116,67 +118,70 @@ def mce_residual(mce_params, H, data=None, trace='upsweep'):
     else:
         warn('Unrecognized trace type, no MCE residual output.')
 
-#%% Compute traces
-# Initialize dictionaries that will contain up- and downsweep solutions
-for key in ['z_up', 'z_down']:
-    if key not in locals():
-        exec(f'{key}={{}}')
+#%% Compute traces to test
+if __name__=='__main__':
 
-hmax = 2
-n_points = 2e3
-
-for T0x10 in [8, 12, 16]:
-    prms = mce_parameters(Hc0=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=T0x10/10)
-    Hc0 = prms['Hc0'].value
-    Tc0 = prms['Tc0'].value
-    H = Hc0*np.linspace(hmax/n_points, hmax, int(n_points))
-    z_up[T0x10] = mce_residual(prms, H, data=None, trace='upsweep')
-    z_down[T0x10] = mce_residual(prms, H, data=None, trace='downsweep')
-
-#%% Plot ODE solution using plotly
-layout = go.Layout(
-    xaxis=dict(title='H (Oe)'),
-    yaxis=dict(title='T(bath) + deltaT_MCE')
-)
-# if 'fig' not in locals():
-fig = go.Figure(layout=layout)
-for key in z_up.keys():
-    fig.add_trace(go.Scatter(x=H, y=z_up[key][0], name=f'Upsweep Tb={key/10}K'))
-    fig.add_trace(go.Scatter(x=H, y=z_down[key][0], name=f'Downsweep Tb={key/10}K'))
-
-# fig.update_layout(title='Average High and Low Temperatures in New York',
-#                    xaxis_title='Month',
-#                    yaxis_title='Temperature (degrees F)')
-
-fig.show(renderer="browser")
-
-#%% Plot ODE solution using matplotlib
-plt.figure()
-# hold on
-for key in z_up.keys():
-    tbkey = f'$T_{{bath}}={key/10}\,$K'
-    plt.plot(H, z_up[key][0], label=''.join(['Upsweep ', tbkey]))
-    plt.plot(H, z_down[key][0], label=''.join(['Downsweep ', tbkey]))
-# plt.xlim([0, 1e4])
-plt.xlabel('$H$ (Oe)')
-plt.ylabel('$T_\mathrm{bath} + \Delta T_\mathrm{MCE}$')
-plt.legend(loc='upper left')
-plt.title(f"Simulated MCE traces at a sweeprate of {prms['sweeprate'].value} Oe")
-
-#%% Show available Plotly renderers
-# import plotly.io as pio
-# print(pio.renderers)
-
-
-#%% Test of solve_ivp
-def exponential_decay(t, y): return -0.5 * y
-
-sol = solve_ivp(exponential_decay, [0, 10], [2], dense_output=True)
-
-t = np.linspace(0,10)
-z = sol.sol(t) # continuous solution obtained from dense_output
-
-plt.figure(1)
-plt.plot(t, z.T)
-
-
+    # Initialize dictionaries that will contain up- and downsweep solutions
+    for key in ['z_up', 'z_down']:
+        if key not in locals():
+            exec(f'{key}={{}}')
+    
+    hmax = 2
+    n_points = 2e3
+    
+    for T0x10 in [8, 12, 16]:
+        prms = mce_parameters(Hc0=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=T0x10/10)
+        Hc0 = prms['Hc0'].value
+        Tc0 = prms['Tc0'].value
+        H = Hc0*np.linspace(hmax/n_points, hmax, int(n_points))
+        z_up[T0x10] = mce_residual(prms, H, data=None, trace='upsweep')
+        z_down[T0x10] = mce_residual(prms, H, data=None, trace='downsweep')
+    
+    
+    #%% Plot ODE solution using plotly
+    layout = go.Layout(
+        xaxis=dict(title='H (Oe)'),
+        yaxis=dict(title='T(bath) + deltaT_MCE')
+    )
+    # if 'fig' not in locals():
+    fig = go.Figure(layout=layout)
+    for key in z_up.keys():
+        fig.add_trace(go.Scatter(x=H, y=z_up[key][0], name=f'Upsweep Tb={key/10}K'))
+        fig.add_trace(go.Scatter(x=H, y=z_down[key][0], name=f'Downsweep Tb={key/10}K'))
+    
+    # fig.update_layout(title='Average High and Low Temperatures in New York',
+    #                    xaxis_title='Month',
+    #                    yaxis_title='Temperature (degrees F)')
+    
+    fig.show(renderer="browser")
+    
+    #%% Plot ODE solution using matplotlib
+    plt.figure()
+    # hold on
+    for key in z_up.keys():
+        tbkey = f'$T_{{bath}}={key/10}\,$K'
+        plt.plot(H, z_up[key][0], label=''.join(['Upsweep ', tbkey]))
+        plt.plot(H, z_down[key][0], label=''.join(['Downsweep ', tbkey]))
+    # plt.xlim([0, 1e4])
+    plt.xlabel('$H$ (Oe)')
+    plt.ylabel('$T_\mathrm{bath} + \Delta T_\mathrm{MCE}$')
+    plt.legend(loc='upper left')
+    plt.title(f"Simulated MCE traces at a sweeprate of {prms['sweeprate'].value} Oe")
+    
+    #%% Show available Plotly renderers
+    # import plotly.io as pio
+    # print(pio.renderers)
+    
+    
+    #%% Test of solve_ivp
+    def exponential_decay(t, y): return -0.5 * y
+    
+    sol = solve_ivp(exponential_decay, [0, 10], [2], dense_output=True)
+    
+    t = np.linspace(0,10)
+    z = sol.sol(t) # continuous solution obtained from dense_output
+    
+    plt.figure(1)
+    plt.plot(t, z.T)
+    
+    
