@@ -16,8 +16,8 @@ where t(h) = T(h)/Tc0, h = H/Hc0, and t0 = Tbath/Tc0, with Tc0 and Hc0 being the
 #%% Import functions
 
 # Core libraries
-import os
-import sys
+# import os
+# import sys
 
 # Data analysis
 import numpy as np
@@ -27,7 +27,7 @@ from matplotlib import pyplot as plt
 
 import plotly.graph_objects as go
 # from plotly.offline import plot
-from lmfit import minimize, Parameters
+from lmfit import Parameters
 
 #%% Local modules
 from TFIM_py.tfim_functions import critical_field
@@ -41,11 +41,11 @@ def mce_parameters(Hc0=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=0.8):
     R = 8.314 # gas constant, in J/K/mol
     mce_prms = Parameters()
     mce_prms.add('Hc0', value=Hc0, min=0)# critical field at T=0, in Oersted
-    mce_prms.add('sweeprate', value=sweeprate, vary=False)# Sweeprate, in Oe/s
-    mce_prms.add('thermal_conductivity', value=kappa, min=0)# thermal conductivity, in W/K/mol
+    # mce_prms.add('sweeprate', value=sweeprate, vary=False)# Sweeprate, in Oe/s
+    # mce_prms.add('thermal_conductivity', value=kappa, min=0)# thermal conductivity, in W/K/mol
     mce_prms.add('ODE_prefactor', value=Hc0*kappa/(sweeprate*R))# ODE prefactor
     mce_prms.add('Tc0', value=Tc0, vary=False)# transition temperature at zero field, in Kelvin
-    mce_prms.add('Normalized_bath_temperature', value=Tbath/Tc0)# Normalized bath temperature
+    mce_prms.add('Normalized_bath_temperature', value=Tbath/Tc0, vary=False)# Normalized bath temperature
     return mce_prms
 
 #%% Residual function to be minimized
@@ -104,17 +104,17 @@ def mce_residual(mce_params, H, data=None, trace='upsweep'):
         # Compute arrays of ODE solution
         z_up = solup.sol(h) # continuous solution obtained from dense_output
         if data is None:
-            return z_up*Tc0
+            return z_up[0]*Tc0
         else:
-            return z_up*Tc0 - data
+            return z_up[0]*Tc0 - data
     elif trace=='downsweep':
         h_span_down = (max(h), min(h)) # interval of integration of the ODE
-        soldown = solve_ivp(ode_rhs, h_span_down, t0, args=(-k1,tbath,hc), dense_output=True, rtol=rel_tol)
+        soldown = solve_ivp(ode_rhs, h_span_down, t0, args=(k1,tbath,hc), dense_output=True, rtol=rel_tol)
         z_down = soldown.sol(h) # continuous solution obtained from dense_output
         if data is None:
-            return z_down*Tc0
+            return z_down[0]*Tc0
         else:
-            return z_down*Tc0 - data
+            return z_down[0]*Tc0 - data
     else:
         warn('Unrecognized trace type, no MCE residual output.')
 
