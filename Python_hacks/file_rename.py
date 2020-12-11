@@ -13,16 +13,14 @@ from datetime import date
 today = date.today()
 other_date = date(2020,7,29)
 
-# os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\Bibliographic_resources\Presentations\Presentations_elastoresistance')
-# os.chdir(r'C:\Users\Pierre\Documents\Personnel\Administratif\Administration_US')
-os.chdir(r'C:\Users\Pierre\Documents\Personnel\Leisure\Guitar')
+os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\TmVO4\TmVO4_heat-capacity\2017-07_TmVO4_Cp_MCE\2017-07-28--31\Massaic_MCE\Run2_0p5uA_figures\2020-12_MCE_fitting')
 
 filenames = glob.glob('* *')# create list of filenames containing at least one whitespace
 
 for filename in filenames:
     print(filename)
-    newfname = '_'.join([str(today), filename.replace(' ', '_')])
-    # newfname = filename.replace('_comsol-mfd_', '_')
+    # newfname = '_'.join([str(today), 'DyVO4_ECE', filename.replace(' ', '_')])
+    newfname = filename.replace(' ', '')
     # New file name adds today's date at the beginning and replaces whitespaces with underscores
     print(newfname)
     print()
