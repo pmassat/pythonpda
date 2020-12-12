@@ -99,24 +99,32 @@ def mce_residual(mce_params, H, data=None, trace='upsweep'):
     h = H/Hc0 # reduced magnetic field data    
     
     if trace=='upsweep':
-        h_span_up = (min(h), max(h)) # interval of integration of the ODE
-        solup = solve_ivp(ode_rhs, h_span_up, t0, args=(k1,tbath,hc), dense_output=True, rtol=rel_tol)
-        # Compute arrays of ODE solution
-        z_up = solup.sol(h) # continuous solution obtained from dense_output
-        if data is None:
-            return z_up[0]*Tc0
-        else:
-            return z_up[0]*Tc0 - data
+        h_span = (min(h), max(h)) # interval of integration of the ODE
     elif trace=='downsweep':
-        h_span_down = (max(h), min(h)) # interval of integration of the ODE
-        soldown = solve_ivp(ode_rhs, h_span_down, t0, args=(k1,tbath,hc), dense_output=True, rtol=rel_tol)
-        z_down = soldown.sol(h) # continuous solution obtained from dense_output
-        if data is None:
-            return z_down[0]*Tc0
-        else:
-            return z_down[0]*Tc0 - data
+        h_span = (max(h), min(h)) # interval of integration of the ODE
     else:
         warn('Unrecognized trace type, no MCE residual output.')
+
+    sol = solve_ivp(ode_rhs, h_span, t0, args=(k1,tbath,hc), dense_output=True, rtol=rel_tol)
+    # Compute arrays of ODE solution
+    try:
+        out = sol.sol(h) # continuous solution obtained from dense_output
+    except IndexError:# If the data array h has too few datapoints, the dense_output computation throws an IndexError; "too few" here means less than the number of datapoints computed for sol.y (I think).
+        out = sol.y
+    if data is None:
+        return out[0]*Tc0
+    else:
+        return out[0]*Tc0 - data
+    # elif trace=='downsweep':
+    #     h_span_down = (max(h), min(h)) # interval of integration of the ODE
+    #     soldown = solve_ivp(ode_rhs, h_span_down, t0, args=(k1,tbath,hc), dense_output=True, rtol=rel_tol)
+    #     z_down = soldown.sol(h) # continuous solution obtained from dense_output
+    #     if data is None:
+    #         return z_down[0]*Tc0
+    #     else:
+    #         return z_down[0]*Tc0 - data
+    # else:
+    #     warn('Unrecognized trace type, no MCE residual output.')
 
 #%% Compute traces to test
 if __name__=='__main__':
