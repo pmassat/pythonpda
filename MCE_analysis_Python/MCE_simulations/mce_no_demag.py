@@ -22,6 +22,7 @@ where t(h) = T(h)/Tc0, h = H/Hc0, and t0 = Tbath/Tc0, with Tc0 and Hc0 being the
 # Data analysis
 import numpy as np
 from scipy.integrate import solve_ivp
+from scipy.signal import convolve
 from warnings import warn
 from matplotlib import pyplot as plt
 
@@ -49,7 +50,7 @@ def mce_parameters(Hc0=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=0.8):
     return mce_prms
 
 #%% Residual function to be minimized
-def mce_residual(mce_params, H, data=None, trace='upsweep'):
+def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
     # unpack parameters: extract .value attribute for each parameter
     parvals = mce_params.valuesdict()
     Hc0 = parvals['Hc0']
@@ -109,22 +110,21 @@ def mce_residual(mce_params, H, data=None, trace='upsweep'):
     # Compute arrays of ODE solution
     try:
         out = sol.sol(h) # continuous solution obtained from dense_output
-    except IndexError:# If the data array h has too few datapoints, the dense_output computation throws an IndexError; "too few" here means less than the number of datapoints computed for sol.y (I think).
+    except IndexError:
+        # If the data array h has too few datapoints, the dense_output computation throws an IndexError; "too few" here means less than the number of datapoints computed for sol.y (I think).
         out = sol.y
-    if data is None:
-        return out[0]*Tc0
+    
+    # Code added on 2020-12-18; test for bugs, then remove this comment
+    if mfd_hc is None:
+        Tout = Tc0 * out[0]
     else:
-        return out[0]*Tc0 - data
-    # elif trace=='downsweep':
-    #     h_span_down = (max(h), min(h)) # interval of integration of the ODE
-    #     soldown = solve_ivp(ode_rhs, h_span_down, t0, args=(k1,tbath,hc), dense_output=True, rtol=rel_tol)
-    #     z_down = soldown.sol(h) # continuous solution obtained from dense_output
-    #     if data is None:
-    #         return z_down[0]*Tc0
-    #     else:
-    #         return z_down[0]*Tc0 - data
-    # else:
-    #     warn('Unrecognized trace type, no MCE residual output.')
+        Tout = Tc0 * convolve(out[0], mfd_hc, mode='same') / sum(mfd_hc)
+                       
+    if data is None:
+        return Tout
+    else:
+        return Tout - data
+
 
 #%% Compute traces to test
 if __name__=='__main__':
