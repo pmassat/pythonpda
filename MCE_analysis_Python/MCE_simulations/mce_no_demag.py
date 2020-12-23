@@ -39,15 +39,48 @@ from TFIM_py.tfim_functions import critical_field
 # Hmax0 = 1e4 # Max field, in Oe
 
 def mce_parameters(Hc0=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=0.8):
+    """
+    Create parameters for fit of MCE traces using lmfit.
+
+    Parameters
+    ----------
+    Hc0 : scalar, optional
+        Critical field at T=0, in Oersted units. The default is 5e3.
+    Hc : scalar, optional
+        Critical field at T=Tbath, in Oersted units. The default is None.
+    sweeprate : scalar, optional
+        Sweeprate, in Oe/s. The default is 10.
+    kappa : scalar, optional
+        Thermal conductivity, in W/K/mol. The default is 0.1.
+    Tc0 : scalar, optional
+        Transition temperature at zero field, in Kelvin units. The default is 2.2.
+    Tbath : scalar, optional
+        Bath temperature, in Kelvin units. The default is 0.8.
+
+    Returns
+    -------
+    mce_prms : lmfit Paramaters() object.
+        Parameters for fit of MCE traces using lmfit.
+
+    """
+    
     R = 8.314 # gas constant, in J/K/mol
+
     mce_prms = Parameters()
-    mce_prms.add('Hc0', value=Hc0, min=0)# critical field at T=0, in Oersted
-    # mce_prms.add('sweeprate', value=sweeprate, vary=False)# Sweeprate, in Oe/s
-    # mce_prms.add('thermal_conductivity', value=kappa, min=0)# thermal conductivity, in W/K/mol
-    mce_prms.add('ODE_prefactor', value=Hc0*kappa/(sweeprate*R))# ODE prefactor
-    mce_prms.add('Tc0', value=Tc0, vary=False)# transition temperature at zero field, in Kelvin
-    mce_prms.add('Normalized_bath_temperature', value=Tbath/Tc0, vary=False)# Normalized bath temperature
+
+    mce_prms.add('Hc0', value=Hc0, min=4e3, vary=True)
+    mce_prms.add('Tc0', value=Tc0, vary=False)
+    mce_prms.add('ODE_prefactor', value=Hc0*kappa/(abs(sweeprate)*R), min=0)#
+    mce_prms.add('Normalized_bath_temperature', value=Tbath/Tc0, vary=False)#
+    # mce_prms.add('Hc', min=0, max=1e4)
+
+    # if Hc is None:
+    #     mce_prms['Hc'].value = Hc0*critical_field(Tbath/Tc0)[0]
+    # else:
+    #     mce_prms['Hc'].value = Hc
+        
     return mce_prms
+
 
 #%% Residual function to be minimized
 def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
@@ -56,9 +89,8 @@ def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
     Hc0 = parvals['Hc0']
     Tc0 = parvals['Tc0']
     # dtH0 = parvals['sweeprate']
-    k1 = parvals['ODE_prefactor']
     tbath = parvals['Normalized_bath_temperature']
-    hc = critical_field(tbath) # corresponding critical field, in the mean-field approximation
+    hc = critical_field(tbath)# corresponding critical field, in the mean-field approximation
     
     # Function for ODE solving
     def ode_rhs(t, y, k, yb, tc):
@@ -101,8 +133,10 @@ def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
     
     if trace=='upsweep':
         h_span = (min(h), max(h)) # interval of integration of the ODE
+        k1 = parvals['ODE_prefactor']
     elif trace=='downsweep':
         h_span = (max(h), min(h)) # interval of integration of the ODE
+        k1 = - parvals['ODE_prefactor']
     else:
         warn('Unrecognized trace type, no MCE residual output.')
 
@@ -124,6 +158,25 @@ def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
         return Tout
     else:
         return Tout - data
+
+
+#%% Objective function for fitting multiple MCE traces
+def xmce_residual(mce_params, H, data, traces, mfd_hc=None, Tbath=None):
+        
+    resid = [None for _ in range(len(H))]
+    # rdict = {'updown':{0:'upsweep', 1:'downsweep'},
+    #          'downup':{0:'downsweep', 1:'upsweep'}}
+
+    for idx in range(len(H)):
+        if Tbath is not None:
+            mce_params['Normalized_bath_temperature'].value = Tbath[idx] / \
+                mce_params['Tc0'].value
+            
+        resid[idx] = data[idx] - mce_residual(mce_params, H[idx], 
+                                              data=data[idx], mfd_hc=mfd_hc, 
+                                              trace=traces[idx])
+
+    return np.concatenate(resid)
 
 
 #%% Compute traces to test
