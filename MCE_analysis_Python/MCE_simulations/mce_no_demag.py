@@ -17,7 +17,7 @@ where t(h) = T(h)/Tc0, h = H/Hc0, and t0 = Tbath/Tc0, with Tc0 and Hc0 being the
 
 # Core libraries
 # import os
-# import sys
+import time
 
 # Data analysis
 import numpy as np
@@ -178,6 +178,40 @@ def xmce_residual(mce_params, H, data, traces, mfd_hc=None, Tbath=None):
 
     return np.concatenate(resid)
 
+
+#%% Compute bath temperature
+def bath_temp(list_of_arrays, rel_temp_var=2.5e-6, rel_temp_bound=1e-3, timeit=False):
+    """
+    list_of_arrays should be a list of arrays that must include at least a temperature array as its first element
+    """
+    tic = time.perf_counter()
+    T = list_of_arrays[0]
+    if len(T)<20:
+        warn("Temperature array does not have enough values.")
+        return # stop the function
+    dT = np.diff(T)
+    d = {}
+    for idx, elmt in enumerate(list_of_arrays):
+        d[idx] = {'m':[], 'b':[], 'bm':[], 'bath':[]}
+        d[idx]['m'] = np.mean([elmt[1:], elmt[:-1]], 0)
+        while len(d[idx]['b'])<min(len(T)/4, 20):
+            d[idx]['b'] = d[idx]['m'][abs(dT/d[0]['m'])<rel_temp_var]
+            rel_temp_var = rel_temp_var*2
+            if rel_temp_var>1e-2:
+                raise DataError("Low-field data is too noisy.")
+        d[idx]['bm'] = np.mean(d[idx]['b'])
+# Remove        d[idx]['bath'] = d[idx]['b'][abs(d[idx]['b']-d[idx]['bm'])/d[idx]['bm']<rel_temp_bound]
+        while len(d[idx]['bath'])<len(d[idx]['b'])/2:
+            d[idx]['bath'] = d[idx]['b'][abs(d[idx]['b']-d[idx]['bm'])/d[idx]['bm']<rel_temp_bound]
+            rel_temp_bound = rel_temp_bound*2
+            if rel_temp_var>5e-2:
+                raise DataError("Can't find enough points to compute bath temperature.")
+        return_label = 'bath'
+    toc = time.perf_counter()
+    if timeit is True:
+        print(f'Runtime of bath_temp function: {toc - tic:0.4f} seconds')
+#     return [d[i][return_label] for i in range(len(d))]# For test purposes
+    return np.mean(d[0][return_label])
 
 #%% Compute traces to test
 if __name__=='__main__':
