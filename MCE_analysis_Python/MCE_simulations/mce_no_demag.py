@@ -38,7 +38,7 @@ from TFIM_py.tfim_functions import critical_field
 
 # Hmax0 = 1e4 # Max field, in Oe
 
-def mce_parameters(Hc0=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=0.8):
+def mce_parameters(Hc0=5e3, Hc=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=0.8):
     """
     Create parameters for fit of MCE traces using lmfit.
 
@@ -68,11 +68,11 @@ def mce_parameters(Hc0=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=0.8):
 
     mce_prms = Parameters()
 
-    mce_prms.add('Hc0', value=Hc0, min=4e3, vary=True)
+    mce_prms.add('Hc0', value=Hc0, min=4e3, vary=False)
     mce_prms.add('Tc0', value=Tc0, vary=False)
     mce_prms.add('ODE_prefactor', value=Hc0*kappa/(abs(sweeprate)*R), min=0)#
     mce_prms.add('Normalized_bath_temperature', value=Tbath/Tc0, vary=False)#
-    # mce_prms.add('Hc', min=0, max=1e4)
+    mce_prms.add('Hc', value=Hc, vary=False)
 
     # if Hc is None:
     #     mce_prms['Hc'].value = Hc0*critical_field(Tbath/Tc0)[0]
@@ -86,11 +86,13 @@ def mce_parameters(Hc0=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=0.8):
 def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
     # unpack parameters: extract .value attribute for each parameter
     parvals = mce_params.valuesdict()
-    Hc0 = parvals['Hc0']
+    # Hc0 = parvals['Hc0']
+    Hc = parvals['Hc']
     Tc0 = parvals['Tc0']
     # dtH0 = parvals['sweeprate']
     tbath = parvals['Normalized_bath_temperature']
-    hc = critical_field(tbath)# corresponding critical field, in the mean-field approximation
+    # hc = critical_field(tbath)# corresponding critical field, in the mean-field approximation
+    hc = 1
     
     # Function for ODE solving
     def ode_rhs(t, y, k, yb, tc):
@@ -129,7 +131,7 @@ def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
     t0 = np.array([tbath]) # value of reduced temperature at initial field (min(h) for upsweep, max(h) for downsweep)
     rtom = 6 # Exponent of the relative tolerance for solving the ODE
     rel_tol = 10**(-rtom) # relative tolerance for solving the ODE
-    h = H/Hc0 # reduced magnetic field data    
+    h = H/Hc # reduced magnetic field data    
     
     if trace=='upsweep':
         h_span = (min(h), max(h)) # interval of integration of the ODE
