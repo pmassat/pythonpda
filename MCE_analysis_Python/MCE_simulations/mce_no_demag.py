@@ -31,7 +31,7 @@ import plotly.graph_objects as go
 from lmfit import Parameters
 
 #%% Local modules
-from TFIM_py.tfim_functions import critical_field
+# from TFIM_py.tfim_functions import critical_field
 # from tfim_functions import critical_field
 
 #%% Define physical constants of the problem
