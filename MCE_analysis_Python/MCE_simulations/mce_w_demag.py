@@ -216,6 +216,26 @@ def bath_temp(list_of_arrays, rel_temp_var=2.5e-6, rel_temp_bound=1e-3, timeit=F
     return np.mean(d[0][return_label])
 
 
+#%% For given field and temperature, find two closest mfd's
+def closest_mfd_values(ptest, upmfd):
+    # sort array of fields by distance to current value of field and keep the two closest values
+    dpmfd = abs(upmfd-ptest)# 
+    closest2p = upmfd[np.argsort(dpmfd)][:2]
+    pweights = 1 - dpmfd[np.argsort(dpmfd)][:2]/abs(np.diff(closest2p)[0])
+
+    # if the value of field is below the lowest value in the array or above the highest, 
+    # i.e. if the distance between the former and the second closest value in the array is larger than 
+    # the distance between the two closest values in the array
+    if dpmfd[np.argsort(dpmfd)][1]>=abs(np.diff(closest2p)[0]):
+        # only keep the single closest value in the array (i.e. the lowest or the highest)
+        closest2p = closest2p[:1]
+        pweights = np.ones(1)
+        # for instance: if H = 345 and the array is [1000, 2000, 3000], only keep 1000,
+        # since abs(2000-345)>abs(2000-1000)
+    
+    return closest2p, pweights
+
+
 #%% Compute traces to test
 if __name__=='__main__':
 
