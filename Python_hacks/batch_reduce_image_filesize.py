@@ -16,19 +16,23 @@ from PIL import Image
 today = date.today()
 other_date = date(2020, 7, 29)
 
-os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\YTmVO4\YTmVO4_pictures\YVO4\YVO4-LS5259\YVO4-LS5259-Cij\YVO4-LS5259-Cij-4')
+os.chdir(r'C:\Users\Pierre\Desktop\2021-03-11_phone_pics')
 
 # create list of filenames containing at least one whitespace
-filenames = glob.glob('* - Copy.png')
+filenames = glob.glob('*.jpg')
 
 for filename in filenames:
     foo = Image.open(filename)
     print(foo.size)
+    print(os.path.getsize(filename)/1024**2)
+
     # New file name replaces whitespaces with underscores
-    newfname = [filename.replace(' - ', '_')]
-    newfname.append(newfname[-1].replace('.png', '.jpg'))
-    print(newfname[-1])
+    newfname = [filename.replace('_compressed.JPG', '.JPG')]
+    # newfname.append(newfname[-1].replace('.png', '.jpg'))
+    print(newfname[-1], '\n')
+
     # Downsize the image with an ANTIALIAS filter (gives the highest quality)
-    # foo = foo.resize((160,300),Image.ANTIALIAS)
-    # foo.save("path\\to\\save\\image_scaled.jpg",quality=95)
-    foo.save(newfname[-1], optimize=True, quality=50)
+    # if os.path.getsize(filename)/1024**2>1:
+        # foo = foo.resize(tuple(int(x/2) for x in foo.size),Image.ANTIALIAS)
+        # foo.save("path\\to\\save\\image_scaled.jpg",quality=95)
+        # foo.save(newfname[-1], optimize=True, quality=50)
