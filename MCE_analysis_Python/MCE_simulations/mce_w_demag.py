@@ -111,7 +111,7 @@ def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
         y : scalar
             ODE function to solve.
         k : scalar
-            ODE parameter. Prefactor of the cosh. Corresponds to the physical quantity k1 = Hc0*kappa / (dtH0*R).
+'            ODE parameter. Prefactor of the cosh. Corresponds to the physical quantity k1 = Hc0*kappa / (dtH0*R).
         yb : scalar
             ODE parameter. Corresponds to the reduced bath temperature Tbath/Tc0.
     
@@ -154,7 +154,7 @@ def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
     if mfd_hc is None:
         Tout = Tc0 * out[0]
     else:
-        Tout = Tc0 * convolve(out[0], mfd_hc, mode='same') / sum(mfd_hc)
+        Tout = Tc0 * convolve(out[0], mfd_hc[::-1], mode='same') / sum(mfd_hc)
                        
     if data is None:
         return Tout
