@@ -11,15 +11,15 @@ import os, glob
 from datetime import date
 
 today = date.today()
-other_date = date(2021,1,8)
+other_date = date(2021,4,22)
 
-os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\_Non_science\Training+Career\Workshops\2021-03-19_3_secrets_of_great_managers')
+os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\_Non_science\Purchases\Lab_supplies\Chemistry\Crucibles\Alumina_crucibles\Almath_crucibles\2021-04_Almath_order')
 
 filenames = glob.glob('* *.pdf')# create list of filenames containing at least one whitespace
 
 for filename in filenames:
     print(filename)
-    newfname = '_'.join([str(today), filename.replace(' ', '_')])
+    newfname = '_'.join([str(other_date), filename.replace(' ', '_')])
     # newfname = filename.replace('_compressed.JPG', '.JPG')
     # New file name adds today's date at the beginning and replaces whitespaces with underscores
     print(newfname)
