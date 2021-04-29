@@ -18,6 +18,7 @@ where t(h) = T(h)/Tc0, h = H/Hc0, and t0 = Tbath/Tc0, with Tc0 and Hc0 being the
 # Core libraries
 # import os
 import time
+from time import perf_counter as tpc
 
 # Data analysis
 import numpy as np
@@ -31,14 +32,14 @@ import plotly.graph_objects as go
 from lmfit import Parameters
 
 #%% Local modules
-# from TFIM_py.tfim_functions import critical_field
+from TFIM_py.tfim_functions import critical_field
 # from tfim_functions import critical_field
 
 #%% Define physical constants of the problem
 
 # Hmax0 = 1e4 # Max field, in Oe
 
-def mce_parameters(Hc0=5e3, Hc=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=0.8):
+def mce_parameters(Hc0=5e3, Hc=None, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=0.8):
     """
     Create parameters for fit of MCE traces using lmfit.
 
@@ -74,12 +75,45 @@ def mce_parameters(Hc0=5e3, Hc=5e3, sweeprate=10, kappa=0.1, Tc0=2.2, Tbath=0.8)
     mce_prms.add('Normalized_bath_temperature', value=Tbath/Tc0, vary=False)#
     mce_prms.add('Hc', value=Hc, vary=False)
 
-    # if Hc is None:
-    #     mce_prms['Hc'].value = Hc0*critical_field(Tbath/Tc0)[0]
-    # else:
-    #     mce_prms['Hc'].value = Hc
+    if Hc is None:
+        mce_prms['Hc'].value = Hc0*critical_field(Tbath/Tc0)[0]
+    else:
+        mce_prms['Hc'].value = Hc
         
     return mce_prms
+
+
+#%% Function for ODE solving
+def ode_rhs(t, y, k, yb, tc):
+    """
+    Define the right hand side of the ODE for the MCE problem corresponding to a physical system subject to the TFIM:
+        dy/dt = y/t + k * (y/t)**2 * np.cosh(t/y)**2 * (yb - y)
+    where y = T/Tc0 is the reduced temperature
+    and t = H/Hc0 is the reduced magnetic field
+    y and t are the variables used in the definition of the Python function solve_ivp()
+    Note that this equation neglects the phonons' contribution to heat capacity, which is fine for magnetic fields of 50 Oe or more, i.e. essentially always fine for our problem, since the MCE is only relevant at high fields of several hundreds of Oersted or more.
+
+    Parameters
+    ----------
+    t : scalar
+        ODE variable.
+    y : scalar
+        ODE function to solve.
+    k : scalar
+'            ODE parameter. Prefactor of the cosh. Corresponds to the physical quantity k1 = Hc0*kappa / (dtH0*R).
+    yb : scalar
+        ODE parameter. Corresponds to the reduced bath temperature Tbath/Tc0.
+
+    Returns
+    -------
+    Scalar
+        The right hand side of the MCE ODE for a system subject to the TFIM.
+
+    """
+    if t>tc:
+        return y/t + k * (y/t)**2 * np.cosh(t/y)**2 * (yb - y)
+    else:
+        return k * (y/t)**2 * np.cosh(t/y)**2 * (yb - y)
 
 
 #%% Residual function to be minimized
@@ -94,43 +128,10 @@ def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
     # hc = critical_field(tbath)# corresponding critical field, in the mean-field approximation
     hc = 1
     
-    # Function for ODE solving
-    def ode_rhs(t, y, k, yb, tc):
-        """
-        Define the right hand side of the ODE for the MCE problem corresponding to a physical system subject to the TFIM:
-            dy/dt = y/t + k * (y/t)**2 * np.cosh(t/y)**2 * (yb - y)
-        where y = T/Tc0 is the reduced temperature
-        and t = H/Hc0 is the reduced magnetic field
-        y and t are the variables used in the definition of the Python function solve_ivp()
-        Note that this equation neglects the phonons' contribution to heat capacity, which is fine for magnetic fields of 50 Oe or more, i.e. essentially always fine for our problem, since the MCE is only relevant at high fields of several hundreds of Oersted or more.
-    
-        Parameters
-        ----------
-        t : scalar
-            ODE variable.
-        y : scalar
-            ODE function to solve.
-        k : scalar
-'            ODE parameter. Prefactor of the cosh. Corresponds to the physical quantity k1 = Hc0*kappa / (dtH0*R).
-        yb : scalar
-            ODE parameter. Corresponds to the reduced bath temperature Tbath/Tc0.
-    
-        Returns
-        -------
-        Scalar
-            The right hand side of the MCE ODE for a system subject to the TFIM.
-    
-        """
-        if t>tc:
-            return y/t + k * (y/t)**2 * np.cosh(t/y)**2 * (yb - y)
-        else:
-            return k * (y/t)**2 * np.cosh(t/y)**2 * (yb - y)
-        
     # Solving of ODE    
     # ODE solving parameters
     t0 = np.array([tbath]) # value of reduced temperature at initial field (min(h) for upsweep, max(h) for downsweep)
-    rtom = 6 # Exponent of the relative tolerance for solving the ODE
-    rel_tol = 10**(-rtom) # relative tolerance for solving the ODE
+    rel_tol = 1e-6 # relative tolerance for solving the ODE
     h = H/Hc # reduced magnetic field data    
     
     if trace=='upsweep':
@@ -142,11 +143,17 @@ def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
     else:
         warn('Unrecognized trace type, no MCE residual output.')
 
+    tic = tpc()
+
     sol = solve_ivp(ode_rhs, h_span, t0, args=(k1,tbath,hc), dense_output=True, rtol=rel_tol)
+    
+    toc = tpc()
+    print(f'Duration of ODE solving = {toc-tic:.3f}')
+    
     # Compute arrays of ODE solution
     try:
         out = sol.sol(h) # continuous solution obtained from dense_output
-    except IndexError:
+    except (IndexError, TypeError):
         # If the data array h has too few datapoints, the dense_output computation throws an IndexError; "too few" here means less than the number of datapoints computed for sol.y (I think).
         out = sol.y
     
