@@ -16,7 +16,7 @@ from PIL import Image
 today = date.today()
 other_date = date(2020, 7, 29)
 
-os.chdir(r'C:\Users\Pierre\Desktop\2021-03-11_lab_pics')
+os.chdir(r'C:\Users\Pierre\Desktop')
 
 # create list of filenames containing at least one whitespace
 filenames = glob.glob('*.JPG')
