@@ -148,7 +148,7 @@ def mce_residual(mce_params, H, data=None, trace='upsweep', mfd_hc=None):
     sol = solve_ivp(ode_rhs, h_span, t0, args=(k1,tbath,hc), dense_output=True, rtol=rel_tol)
     
     toc = tpc()
-    print(f'Duration of ODE solving = {toc-tic:.3f}')
+    print(f'Duration of ODE solving = {toc-tic:.3f} s')
     
     # Compute arrays of ODE solution
     try:
