@@ -16,13 +16,13 @@ from PIL import Image
 today = date.today()
 other_date = date(2020, 7, 29)
 
-os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\Technical_stuff\PPMS\PPMS_DR\2021_DR_restart\2021-06-08_DR_pics')
+os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\Technical_stuff\DSC')
 
 # create list of filenames containing at least one whitespace
 filenames = glob.glob('*.JPG')
 
 for filename in filenames:
-    print(os.path.getsize(filename)/1024**2, 'MB')
+    print(f'{os.path.getsize(filename)/1024**2:.2f} MB')
 
     # New file name replaces whitespaces with underscores
     newfname = filename.replace('.JPG', '_.jpg')
