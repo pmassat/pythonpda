@@ -13,13 +13,13 @@ from datetime import date
 today = date.today()
 other_date = date(2021,6,8)
 
-os.chdir(r'C:\Users\Pierre\pmassat89\Photos\Me')
+os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\Technical_stuff\PPMS\PPMS_DR\2021_DR_return')
 
-filenames = glob.glob('*.jpg')# create list of filenames containing at least one whitespace
+filenames = glob.glob('*.pdf')# create list of filenames containing at least one whitespace
 
 for idx, filename in enumerate(filenames):
     print(filename)
-    newfname = '_'.join([str(other_date), f'Matthias_birthday_0{idx+1}.jpg'])
+    newfname = '_'.join([str(today), filename.replace(' ', '_')])
     # newfname = filename.replace('_compressed.JPG', '.JPG')
     # New file name adds today's date at the beginning and replaces whitespaces with underscores
     print(newfname)
