@@ -11,11 +11,11 @@ import os, glob
 from datetime import date
 
 today = date.today()
-other_date = date(2021,6,8)
+other_date = date(2021,6,24)
 
 os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\Technical_stuff\PPMS\PPMS_DR\2021_DR_return')
 
-filenames = glob.glob('*.pdf')# create list of filenames containing at least one whitespace
+filenames = glob.glob('* *.pdf')# create list of filenames containing at least one whitespace
 
 for idx, filename in enumerate(filenames):
     print(filename)

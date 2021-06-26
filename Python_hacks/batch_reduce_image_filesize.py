@@ -16,22 +16,22 @@ from PIL import Image
 today = date.today()
 other_date = date(2020, 7, 29)
 
-os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\Technical_stuff\DSC')
+os.chdir(r'C:\Users\Pierre\Desktop\Postdoc\YTmVO4\YTmVO4_pictures\Y99-TmVO4-LS5677\Y99-TmVO4-LS5677-Cij2106')
 
 # create list of filenames containing at least one whitespace
-filenames = glob.glob('*.JPG')
+filenames = glob.glob('* - Copy.png')
 
 for filename in filenames:
     print(f'{os.path.getsize(filename)/1024**2:.2f} MB')
 
     # New file name replaces whitespaces with underscores
-    newfname = filename.replace('.JPG', '_.jpg')
+    newfname = filename.replace(' - Copy.png', '_copy.jpg')
     print(newfname)
 
     foo = Image.open(filename)
     print(foo.size, '\n')
     # Downsize the image with an ANTIALIAS filter (gives the highest quality)
     # if os.path.getsize(filename)/1024**2>1:
-        # foo.save(newfname, optimize=True, quality=50)
+    #     foo.save(newfname, optimize=True, quality=50)
         # foo = foo.resize(tuple(int(x/2) for x in foo.size),Image.ANTIALIAS)
         # foo.save("path\\to\\save\\image_scaled.jpg",quality=95)
