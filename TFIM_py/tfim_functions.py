@@ -25,7 +25,7 @@ def critical_field(t):
 if __name__=='__main__':
     t = np.concatenate([np.logspace(-5,-2), 
                         np.linspace(.02,.99,98),
-                        1-np.logspace(-2,-5)])
+                        1-np.logspace(-2,-8)])
     hc = np.ones(np.size(t))
     rng = range(len(t))
     
