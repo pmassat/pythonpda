@@ -20,19 +20,23 @@ def critical_field(t):
         hc = 0;
     return hc
 
+def critical_temp(h):
+    return h/np.arctanh(h)
 
 #%% 
 if __name__=='__main__':
     t = np.concatenate([np.logspace(-5,-2), 
                         np.linspace(.02,.99,98),
-                        1-np.logspace(-2,-8)])
-    hc = np.ones(np.size(t))
-    rng = range(len(t))
+                        1-np.logspace(-2,-16)])
+    h = np.copy(t)
+    tc = critical_temp(h)
     
-    for i in rng:
+    hc = np.ones(np.size(t))
+    for i in range(len(t)):
         hc[i] = critical_field(t[i])
     
     
     # Plot phase boundary
-    plt.figure
+    plt.figure()
     plt.plot(hc, t)
+    # plt.plot(h, tc, '--')
